@@ -10,7 +10,7 @@
    ※ 열쇠(교사용키·관리자키)는 이 파일에 넣지 마세요. 스프레드시트에만 둡니다.
    ──────────────────────────────────────────────────────────── */
 
-export const GAS_URL = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbzQjPaW21VPS11O6xwaNV0BiT-So2li340o5bR8HiEKp3QYA3MyWv3FPqRkyGmO9sVnMQ/exec/exec';
+export const GAS_URL = 'https://script.google.com/macros/s/AKfycbzQjPaW21VPS11O6xwaNV0BiT-So2li340o5bR8HiEKp3QYA3MyWv3FPqRkyGmO9sVnMQ/exec';
 
 /* 학교 표기 — 표지와 사이드바에 그대로 나옵니다. 표어는 나중에 바꿔 넣으면 됩니다. */
 export const SCHOOL = {
