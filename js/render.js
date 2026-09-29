@@ -146,11 +146,11 @@ export function similarStudents(cases) {
 
 export function univTable(list) {
   if (!list.length) return '<div class="empty">집계할 수시 기록이 없습니다.</div>';
-  return `<div class="note">유사 학생들이 실제로 지원한 대학·전형입니다. <b>합격 열에 숫자가 있는 행</b>이 이 성적대에서 실제로 뚫린 조합입니다. 열 제목을 누르면 정렬됩니다.</div>
+  return `<div class="note">유사 학생들이 실제로 지원한 대학·전형입니다. <b>합격 열에 숫자가 있는 행</b>이 이 성적대에서 실제로 뚫린 조합입니다. 열 제목을 누르면 정렬되고, <b>대학 이름을 누르면 그 대학 합격생 전체</b>를 봅니다.</div>
   <div class="tbl-wrap"><table data-sortable>
   <thead><tr><th>대학</th><th>전형</th><th class="n">지원</th><th class="n">합격</th><th class="n">합격률</th><th class="n">합격자 내신</th><th class="n">최저미달</th></tr></thead>
   <tbody>${list.map(o => `<tr>
-    <td>${esc(o.univ)}</td><td class="mut">${esc(o.track || '')}</td>
+    <td><button class="ulink" data-univ="${esc(o.univ)}" title="이 대학의 합격생 전체 보기">${esc(o.univ)}</button></td><td class="mut">${esc(o.track || '')}</td>
     <td class="n">${o.n}</td>
     <td class="n ${o.h ? 'ok' : 'mut'}" data-v="${o.h}"><b>${o.h}</b></td>
     <td class="n" data-v="${o.n ? o.h / o.n : 0}">${pct(o.h, o.n)}%</td>
@@ -217,4 +217,85 @@ export function caseView(c, i, n) {
     res, resNo: !c.won.length,
     body: `<div class="md-g">수시 ${c.su.length}장</div>` + c.su.map(bigRow).join(''),
   };
+}
+
+/* ── 대학별 합격생 ───────────────────────────────────────
+   한 대학의 지원·합격 기록을 내신(9등급 전학년) 좋은 순으로 늘어놓습니다.
+   자료에 이름·학번이 없으므로 한 줄은 「학년도 · 내신 · 전형 · 모집단위 · 결과」입니다. */
+
+const median = v => { if (!v.length) return null; const s = [...v].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const isRe = a => /\/G\//.test(a.pk);
+
+/* 검색 제안 칩 */
+export function univSuggest(list, picked) {
+  if (!list.length) return '<span class="none">맞는 대학이 없습니다. 이름을 줄여서(예: 「외대」「시립대」) 찾아보세요.</span>';
+  return list.map(o => `<button class="uchip" data-univ="${esc(o.univ)}" aria-pressed="${o.univ === picked}">${esc(o.univ)}<span class="c">합격 ${o.h}</span></button>`).join('');
+}
+
+export function univPage(univ, all, pmap, f, me) {
+  const pass = all.filter(a => isPass({ a }));
+  const people = new Set(all.map(a => a.pk)), passPeople = new Set(pass.map(a => a.pk));
+  const gOf = a => pmap.get(a.pk)?.g || [];
+  const pg = [...new Set(pass.map(a => a.pk))].map(pk => pmap.get(pk)?.g?.[3]).filter(v => v != null);
+  const years = [...new Set(all.map(a => a.y))].sort();
+  const tracks = [...new Set(all.map(a => a.track))];
+
+  /* 전형 갈래별 요약 — 지원·합격·합격자 내신 범위 */
+  const tsum = tracks.map(t => {
+    const rows = all.filter(a => a.track === t), ps = rows.filter(a => isPass({ a }));
+    const gs = ps.map(a => gOf(a)[3]).filter(v => v != null);
+    return { t, n: rows.length, h: ps.length, lo: gs.length ? Math.min(...gs) : null, hi: gs.length ? Math.max(...gs) : null };
+  }).sort((a, b) => b.h - a.h || b.n - a.n);
+
+  /* 걸러진 줄 */
+  let rows = all.filter(a => (f.res === 'all' || isPass({ a })) && (f.tr === 'all' || a.track === f.tr) && (f.yr === 'all' || a.y === +f.yr));
+  rows = rows.map(a => ({ a, g: gOf(a) })).sort((x, y) => (x.g[3] ?? 99) - (y.g[3] ?? 99) || y.a.y - x.a.y);
+
+  const chip = (k, v, label, n) => `<button class="chip" data-uf="${k}" data-v="${esc(v)}" aria-pressed="${String(f[k]) === String(v)}">${esc(label)}${n != null ? `<small>${n}</small>` : ''}</button>`;
+  const cnt = (pred) => all.filter(a => (f.res === 'all' || isPass({ a })) && pred(a)).length;
+
+  const stats = `<div class="stats">
+    <div class="stat"><b>${passPeople.size}명</b><i>합격자 (${pass.length}건 · 추합 ${pass.filter(a => a.res === '추합').length})</i></div>
+    <div class="stat"><b>${all.length}건</b><i>지원 (${people.size}명)</i></div>
+    <div class="stat"><b class="ok">${all.length ? ((pass.length / all.length) * 100).toFixed(1) : '0.0'}%</b><i>건별 합격률</i></div>
+    <div class="stat"><b class="brand">${pg.length ? `${Math.min(...pg).toFixed(2)} ~ ${Math.max(...pg).toFixed(2)}` : '—'}</b><i>합격자 내신 · 가운데 ${pg.length ? median(pg).toFixed(2) : '—'}</i></div>
+  </div>`;
+
+  const tbl = `<div class="tbl-wrap"><table class="utbl">
+    <thead><tr><th>갈래</th><th class="n">지원</th><th class="n">합격</th><th class="n">합격률</th><th class="n">합격자 내신</th></tr></thead>
+    <tbody>${tsum.map(o => `<tr><td><b>${esc(o.t)}</b></td><td class="n">${o.n}</td><td class="n ${o.h ? 'ok' : 'mut'}"><b>${o.h}</b></td>
+      <td class="n">${o.n ? Math.round((o.h / o.n) * 100) : 0}%</td><td class="n mut">${o.lo != null ? `${o.lo.toFixed(2)} ~ ${o.hi.toFixed(2)}` : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+
+  const tools = `<div class="utools">
+    <div class="ug"><span class="fl">결과</span><div class="chips">${chip('res', 'pass', '합격·추합만')}${chip('res', 'all', '전체 지원')}</div></div>
+    <div class="ug"><span class="fl">전형</span><div class="chips">${chip('tr', 'all', '전체', cnt(() => true))}${tsum.map(o => chip('tr', o.t, o.t, cnt(a => a.track === o.t))).join('')}</div></div>
+    <div class="ug"><span class="fl">학년도</span><div class="chips">${chip('yr', 'all', '전체')}${years.map(y => chip('yr', y, `${y}`, cnt(a => a.y === y))).join('')}</div></div>
+  </div>`;
+
+  /* 상담 중인 학생이 있으면 그 내신 자리에 표시 줄을 끼웁니다 */
+  let meAt = -1;
+  if (me?.g != null) { meAt = rows.findIndex(r => (r.g[3] ?? 99) > me.g); if (meAt < 0) meAt = rows.length; }
+  const meRow = me?.g != null ? `<tr class="me"><td class="n">▶</td><td class="n"><b>${me.g.toFixed(2)}</b></td><td colspan="6">${esc(me.nm || '상담 중인 학생')}${me.est ? ' <span class="wn">(9등급 환산)</span>' : ''} — 이 학생의 내신 자리입니다</td></tr>` : '';
+  const body = rows.map((r, i) => `<tr class="${isPass(r) ? 'pass' : 'fail'}">
+      <td class="n mut">${i + 1}</td>
+      <td class="n"><b>${f2(r.g[3])}</b></td>
+      <td class="n mut nw">${[0, 1, 2].map(k => f2(r.g[k])).join(' · ')}</td>
+      <td class="nw">${r.a.y}${isRe(r.a) ? ' <span class="re">재수</span>' : ''}</td>
+      <td class="ty"><span class="tb">${esc(r.a.track)}</span>${esc(r.a.type || '')}</td>
+      <td>${esc(r.a.dept || '')}</td>
+      <td class="rt nw">${minTag(r.a)}${firstTag(r.a)}${waitTag(r.a)}${resTag(r.a)}</td>
+    </tr>`);
+  if (meAt >= 0) body.splice(meAt, 0, meRow);
+
+  const list = rows.length
+    ? `<div class="tbl-wrap"><table class="ulist">
+      <thead><tr><th class="n">#</th><th class="n">내신 ▲</th><th class="n">1·2·3학년</th><th>학년도</th><th>전형</th><th>모집단위</th><th class="rt">결과</th></tr></thead>
+      <tbody>${body.join('')}</tbody></table></div>`
+    : '<div class="empty">조건에 맞는 기록이 없습니다.</div>';
+
+  return `${stats}
+    <div class="note">${esc(univ)}에 <b>${years.join('·')}학년도</b> 동안 ${people.size}명이 ${all.length}장을 썼고, <b>${passPeople.size}명</b>이 붙었습니다.
+      아래 목록은 <b>내신(9등급 전학년)이 좋은 순</b>입니다. 이름은 자료에 없습니다.</div>
+    <div class="usec"><h3>전형 갈래별</h3>${tbl}</div>
+    <div class="usec"><h3>${f.res === 'all' ? '지원' : '합격'} 목록 <span class="snote">${rows.length}건</span></h3>${tools}${list}</div>`;
 }

@@ -1009,3 +1009,47 @@ table.jgtbl td.b{font-weight:700}
 .stu .app .dp .ty::before{content:'· '}
 .adm-files .af i{font-style:normal;color:#93a0c4;font-size:11.5px;margin-left:6px}
 .gcard .cbv .wn{font-weight:500}
+
+/* ── 대학별 합격생 ─────────────────────────────────── */
+.usearch{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+#uq{width:100%;font:inherit;font-size:16px;font-weight:600;padding:11px 14px;border:1.5px solid #cfd8e6;border-radius:10px;
+  background:#fbfcfe;color:var(--ink);outline:none}
+#uq:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+.usug{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.usug .none{font-size:12.5px;color:var(--faint)}
+.uchip{font:inherit;font-size:12.5px;font-weight:700;color:#34435a;background:#f3f6fb;border:1px solid #dde4ef;border-radius:99px;
+  padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.uchip .c{font-size:10.5px;font-weight:700;color:var(--pass);background:var(--pass-soft);border-radius:99px;padding:1px 6px}
+.uchip:hover{border-color:#b8c6dc}
+.uchip[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68;color:#fff}
+.uchip[aria-pressed=true] .c{background:rgba(255,255,255,.18);color:#fff}
+.usec{margin-top:14px}
+.usec h3{font-size:14px;font-weight:800;color:#1c2733;margin:0 0 8px;display:flex;align-items:baseline;gap:8px}
+.usec h3 .snote{font-size:12px;color:var(--faint);font-weight:600}
+.utbl td,.utbl th{padding:8px 12px}
+.utools{display:flex;flex-direction:column;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px 14px;margin-bottom:8px}
+.utools .ug{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.utools .fl{font-size:11px;font-weight:800;color:var(--faint);width:40px;flex:none}
+.utools .chips .chip{background:#f3f5fa;border-color:#dfe4ee;color:#4b5a70;padding:4px 10px;font-size:12px}
+.utools .chips .chip small{font-weight:700;opacity:.7;margin-left:4px}
+.utools .chips .chip[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68;color:#fff}
+.ulist td{padding:8px 10px;vertical-align:middle}
+.ulist td.nw,.ulist th{white-space:nowrap}
+.ulist td.rt,.ulist th.rt{text-align:right}
+.ulist td.rt .tag{margin-left:3px}
+.ulist td.ty{font-size:12px;color:var(--sub);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ulist td.ty .tb{display:inline-block;font-size:10.5px;font-weight:800;color:#34435a;background:#eef2f8;border:1px solid #d9e0ea;
+  border-radius:5px;padding:0 6px;margin-right:6px}
+.ulist tr.fail td.ty .tb{color:#98a3b3}
+.ulist tr.pass td:nth-child(2) b{color:var(--pass)}
+.ulist tr.fail{background:#fbfcfd}
+.ulist tr.fail td{color:#98a3b3}
+.ulist tr.fail td b{color:#7c8898}
+.ulist .re{font-size:10px;font-weight:800;color:#8a5a1f;background:#fff3e0;border:1px solid #f0d9b0;border-radius:5px;padding:0 5px;margin-left:3px}
+.ulist tr.me td{background:#eaf1fe;color:#1e3a8a;font-weight:700;border-top:2px solid #2563eb;border-bottom:2px solid #2563eb}
+.ulist tr.me td b{color:#1e3a8a}
+.ulink{font:inherit;background:none;border:none;padding:0;color:inherit;cursor:pointer;text-align:left;
+  text-decoration:underline;text-decoration-color:#c9d3e2;text-underline-offset:3px}
+.ulink:hover{color:var(--accent);text-decoration-color:var(--accent)}
+@media (max-width:900px){ .ulist td.ty{max-width:150px} }

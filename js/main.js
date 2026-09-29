@@ -16,7 +16,10 @@ const S = {
   roster: null,   // 학년별 내신 석차 명단 — { sets: {학년: {students, meta}}, students, meta }
   cur: null,      // 선택한 학생
   cases: [],      // 현재 화면의 유사 학생 사례 — 목록과 「크게 보기」가 함께 씁니다
+  view: 'stu',    // 'stu' 학생 상담 | 'univ' 대학별 합격생
+  univ: null,     // 대학별 화면에서 고른 대학
 };
+const UF = { res: 'pass', tr: 'all', yr: 'all' };   // 대학별 화면 거르기
 
 /* ── 학교 표기 ─────────────────────────────────────── */
 
@@ -236,9 +239,8 @@ function showApp() {
   selectTab('stu');
   fillClasses();
   fillStudents();
-  $('results').classList.add('hidden');
-  showEmpty();
-  run();
+  univStat = null; S.pmap = null;
+  setView(S.view);
 }
 
 /* 학생을 바꾸거나 목록을 바꿀 때 앞 학생의 값이 한 칸도 남지 않게 전부 비웁니다. */
@@ -313,6 +315,7 @@ let selGy = -1;
 
 let emptyDefault = null;
 function showEmpty(msg) {
+  if (S.view === 'univ') return;   /* 대학별 화면에서는 안내문 자리가 따로 없습니다 */
   $('results').classList.add('hidden');
   $('placeholder').classList.remove('hidden');
   if (emptyDefault == null) emptyDefault = $('placeholder').innerHTML;
@@ -321,6 +324,7 @@ function showEmpty(msg) {
 
 function run() {
   if (!S.index) return;
+  if (S.view === 'univ') return paintUniv();
   caseClose();
   const gpa = numOf('gpa');
   if (gpa == null) return showEmpty();
@@ -346,6 +350,88 @@ function run() {
   $('c-univ').textContent = uni.length;
   $('placeholder').classList.add('hidden');
   $('results').classList.remove('hidden');
+}
+
+/* ── 대학별 합격생 ─────────────────────────────────────
+   대학 이름을 치면 그 대학 지원 기록을 내신 좋은 순으로 보여 줍니다.
+   「서울대」가 동서울대·서울시립대까지 끌어오지 않도록 앞에서부터 맞는 이름을 먼저 세우고,
+   흔한 줄임말(외대·이대·숙대·성대·고대·연대·시립대)은 풀어서 찾습니다. */
+
+const ALIAS = [[/^외대|^한국외대/, '한국외국어대'], [/^이대/, '이화여자대'], [/^숙대/, '숙명여자대'], [/^성대/, '성균관대'],
+  [/^고대/, '고려대'], [/^연대/, '연세대'], [/^시립대/, '서울시립대'], [/^서울대/, '서울대'], [/^카이스트/i, 'KAIST'], [/^포스텍/i, '포항공과대']];
+const unorm = s => String(s || '').replace(/\s+/g, '').replace(/대학교/g, '대').toLowerCase();
+
+let univStat = null;   // 대학 → { univ, n, h }
+function univList() {
+  if (univStat) return univStat;
+  const m = new Map();
+  for (const a of S.history.apps) {
+    if (!m.has(a.univ)) m.set(a.univ, { univ: a.univ, n: 0, h: 0 });
+    const o = m.get(a.univ); o.n++; if (a.res === '합격' || a.res === '추합') o.h++;
+  }
+  return (univStat = [...m.values()].sort((a, b) => b.h - a.h || b.n - a.n));
+}
+
+/* 친 글자를 줄임말까지 풀어 비교 열쇠로 바꿉니다 — 「외대」→「한국외국어대」 */
+function univKeyOf(q) {
+  let k = unorm(q);
+  for (const [re, to] of ALIAS) if (re.test(k)) { k = unorm(to) + k.replace(re, '').replace(/^대/, ''); break; }
+  return k;
+}
+const baseName = u => unorm(u).replace(/\(.*\)$/, '');
+
+function univFind(q) {
+  const k = univKeyOf(q);
+  if (!k) return univList().filter(o => o.h).slice(0, 16);
+  /* 앞에서부터 맞는 이름 → 본교(괄호 없는 이름) → 합격 많은 순 */
+  const hit = univList().map(o => { const u = unorm(o.univ); return { o, at: u.startsWith(k) ? 0 : (u.includes(k) ? 1 : -1), camp: /\(/.test(o.univ) ? 1 : 0 }; })
+    .filter(x => x.at >= 0).sort((a, b) => a.at - b.at || a.camp - b.camp || b.o.h - a.o.h || b.o.n - a.o.n);
+  return hit.map(x => x.o).slice(0, 16);
+}
+
+function setView(v) {
+  S.view = v;
+  document.querySelectorAll('#viewchips .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.view === v)));
+  const isU = v === 'univ';
+  $('sb-cond').classList.toggle('hidden', isU);
+  $('sb-nums').classList.toggle('hidden', isU);
+  $('uview').classList.toggle('hidden', !isU);
+  caseClose();
+  if (isU) { $('results').classList.add('hidden'); $('placeholder').classList.add('hidden'); paintUniv(); }
+  else { $('uview').classList.add('hidden'); run(); }
+}
+
+function openUniv(name) {
+  S.univ = name; UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';
+  $('uq').value = name;
+  setView('univ');
+  window.scrollTo({ top: 0 });
+}
+
+function paintUniv() {
+  const q = $('uq').value.trim();
+  const sug = univFind(q);
+  /* 친 이름과 딱 맞는 대학이 있으면 바로 엽니다 — 「서울대학교」「서울대」 */
+  if (q && !S.univ) {
+    const k = univKeyOf(q);
+    const exact = sug.find(o => unorm(o.univ) === k) || sug.find(o => baseName(o.univ) === k || baseName(o.univ) === k + '대');
+    if (exact) S.univ = exact.univ;
+    else if (sug.length === 1) S.univ = sug[0].univ;   /* 후보가 하나뿐이면 바로 엽니다 */
+  }
+  $('usug').innerHTML = R.univSuggest(sug, S.univ);
+  if (!S.univ) {
+    $('utitle').textContent = '대학별 합격생';
+    $('unote').textContent = q ? `「${q}」 — 아래에서 대학을 고르세요` : '합격자가 많은 대학부터 보여 줍니다';
+    $('ubody').innerHTML = '';
+    return;
+  }
+  const all = S.history.apps.filter(a => a.univ === S.univ);
+  if (!S.pmap) S.pmap = new Map(S.history.persons.map(p => [p.pk, p]));
+  const gv = numOf('gpa');
+  const me = S.cur && gv != null ? { g: gv, nm: S.cur.nm, est: S.cur.a5 != null && Math.abs(gv - S.cur.g[3]) < 0.005 } : (gv != null ? { g: gv, nm: '입력한 내신' } : null);
+  $('utitle').textContent = S.univ;
+  $('unote').textContent = `${S.history.meta.years.join('·')}학년도 수시`;
+  $('ubody').innerHTML = R.univPage(S.univ, all, S.pmap, UF, me);
 }
 
 /* ── 관리자 ────────────────────────────────────────── */
@@ -455,7 +541,7 @@ async function refresh() {
     S.history = decode(res.data);
     S.version = res.version;
     fillYears();
-    S.index = null;
+    S.index = null; S.pmap = null; univStat = null;
     if (!$('app').classList.contains('hidden')) {
       S.index = buildIndex(S.history);
       showApp();
@@ -619,6 +705,25 @@ bindChips('gychips', b => { selGy = +b.dataset.gy; run(); });
 document.querySelectorAll('#results .tab').forEach(t => t.addEventListener('click', () => {
   selectTab(t.dataset.t); toTop(t.closest('.tabs'));
 }));
+
+bindChips('viewchips', b => setView(b.dataset.view));
+$('uq').addEventListener('input', () => { S.univ = null; paintUniv(); });
+$('uq').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const first = $('usug').querySelector('.uchip'); if (first && !S.univ) { S.univ = first.dataset.univ; paintUniv(); }
+});
+$('usug').addEventListener('click', e => {
+  const b = e.target.closest('.uchip[data-univ]'); if (!b) return;
+  S.univ = b.dataset.univ; UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';
+  $('uq').value = S.univ; paintUniv();
+});
+$('ubody').addEventListener('click', e => {
+  const c = e.target.closest('.chip[data-uf]'); if (!c) return;
+  UF[c.dataset.uf] = c.dataset.v; paintUniv();
+});
+$('p-univ').addEventListener('click', e => {
+  const b = e.target.closest('.ulink[data-univ]'); if (b) openUniv(b.dataset.univ);
+});
 
 $('btn-roster').addEventListener('click', () => screenUpload());
 $('sb-scope').addEventListener('click', e => {
