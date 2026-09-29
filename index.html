@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>과천외국어고등학교 진학상담 프로그램</title>
+<link rel="icon" href="./crest.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+
+<!-- ── 표지 (로딩 / 명단 올리기 / 차단 / 관리자) ── -->
+<section id="cover" class="cover">
+  <div class="gridlines"></div><div class="glow"></div><div class="hairline"></div>
+  <img class="wm" src="./crest.png" alt="">
+  <div class="cv-head">
+    <div class="cv-id">
+      <div class="cv-chip"><img src="./crest.png" alt=""></div>
+      <div class="en2" data-school="en"></div>
+    </div>
+    <div class="cv-pills" id="cv-pills"></div>
+  </div>
+  <div id="cv-body"></div>
+</section>
+
+<!-- ── 상담 화면 ── -->
+<div id="app" class="app hidden">
+  <aside class="sb">
+    <img class="sb-wm" src="./crest.png" alt="">
+    <div class="sb-inner">
+      <div class="sb-id">
+        <div class="sb-chip"><img src="./crest.png" alt=""></div>
+        <div class="en2" data-school="en2"></div>
+      </div>
+      <div class="sb-title" data-school="title"></div>
+      <div class="sb-sub" data-school="titleEn"></div>
+
+      <div class="sb-scope" id="sb-scope"></div>
+
+      <div id="sb-stupick">
+      <div class="sbl">학생 선택</div>
+      <div class="row2"><select id="cls"></select><select id="stu"></select></div>
+      <input type="search" id="q" placeholder="이름으로 찾기">
+      <div id="stucard" class="sb-stu hidden"></div>
+      </div>
+
+      <div id="sb-cond">
+      <div class="sbl">성적 조건</div>
+      <div id="in-susi">
+        <div class="gpa-in">
+          <label>내신 전학년 <span class="req">*</span> <span id="gpanote" class="gpanote"></span></label>
+          <div class="gpa-row">
+            <div class="gcard">
+              <div class="cbt">전학년</div>
+              <div class="cbv">
+                <div id="gpa5c" class="hidden"><span>5등급</span><b id="gpa5">—</b></div>
+                <div><span>9등급</span>
+                  <input type="number" id="gpa" step="0.01" min="1" max="9" placeholder="3.45"></div>
+              </div>
+            </div>
+            <div class="gcard" id="gpasubs"></div>
+          </div>
+        </div>
+      </div>
+
+      <label class="lbl">희망 계열</label>
+      <div class="chips" id="gychips">
+        <button class="chip" data-gy="-1" aria-pressed="true">전체</button>
+        <button class="chip" data-gy="0">어문</button>
+        <button class="chip" data-gy="1">사회·상경</button>
+        <button class="chip" data-gy="2">자연·의약</button>
+        <button class="chip" data-gy="3">예체능</button>
+        <button class="chip" data-gy="4">기타</button>
+      </div>
+      </div>
+
+      <div class="row2 mt" id="sb-nums">
+        <div><label class="lbl">유사 학생 수</label>
+          <select id="topn"><option selected>30</option><option>40</option><option>50</option></select></div>
+        <div><label class="lbl">대상 연도</label>
+          <select id="yrs"><option value="99" selected>전체</option></select></div>
+      </div>
+
+      <div class="sb-actions">
+        <button class="sb-btn" id="btn-roster">내신 석차 파일 다시 올리기</button>
+        <button class="sb-btn ghost" id="btn-wipe">이 컴퓨터에서 자료 지우기</button>
+      </div>
+      <div class="sb-foot">서버 전송 없음 · 명단은 이 브라우저 안에서만</div>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div id="results" class="hidden">
+      <div class="shead"><span class="tick"></span><h2 id="rtitle">유사 사례</h2>
+        <span class="snote" id="rnote"></span></div>
+      <div class="stats" id="stats"></div>
+      <div id="headline"></div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-t="stu" aria-selected="true"><span id="t-stu">유사 학생</span><span class="c" id="c-stu"></span></button>
+        <button class="tab" role="tab" data-t="univ" aria-selected="false"><span id="t-univ">대학·전형</span><span class="c" id="c-univ"></span></button>
+        <button class="tab" role="tab" data-t="track" aria-selected="false"><span id="t-track">카드 배분</span></button>
+      </div>
+      <div id="p-stu"></div>
+      <div id="p-univ" class="hidden"></div>
+      <div id="p-track" class="hidden"></div>
+    </div>
+    <div class="empty" id="placeholder">
+      왼쪽에서 <b>학생을 선택</b>하면 성적이 비슷했던 졸업생들의 수시 지원 결과가 여기에 표시됩니다.<br>
+      <span class="fine">명단에 없으면 내신 전학년(9등급)을 직접 입력해도 됩니다.</span>
+    </div>
+  </main>
+</div>
+
+<!-- 사례 하나를 크게 보는 창. 목록에서 카드를 누르면 열립니다. -->
+<div class="mask" id="mask" role="dialog" aria-modal="true" aria-label="졸업생 사례">
+  <div class="md" id="md">
+    <div class="md-h">
+      <span class="cnt" id="md-cnt"></span><span class="yr" id="md-yr"></span>
+      <button class="md-x" id="md-x" title="닫기" aria-label="닫기">✕</button>
+    </div>
+    <div class="md-s">
+      <div class="big" id="md-big"></div>
+      <div class="sc" id="md-sc"></div>
+      <div class="res" id="md-res"></div>
+    </div>
+    <div class="md-b" id="md-b"></div>
+    <div class="md-f">
+      <button class="md-nav" id="md-prev">← 이전 사례</button>
+      <button class="md-nav" id="md-next">다음 사례 →</button>
+      <button class="md-nav close" id="md-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="f-roster" accept=".xlsx,.xls" multiple hidden>
+<input type="file" id="f-history" accept=".xlsx,.xls" multiple hidden>
+
+<script src="./vendor/xlsx.full.min.js"></script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
