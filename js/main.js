@@ -3,7 +3,7 @@ const { GAS_URL, SCHOOL, ROSTER_STEPS } = CFG;
 import * as store from './store.js';
 import * as api from './api.js';
 import { encode, decode } from './codec.js';
-import { parseApps, mergeApps, parseRoster, ROSTER_PV } from './parse.js';
+import { parseApps, mergeApps, parseRoster, ROSTER_PV, univFix } from './parse.js';
 import { fixHcell } from './xlfix.js';
 import { buildIndex, findSimilar, summarize, aggregateUniv, aggregateTrack } from './match.js';
 import * as R from './render.js';
@@ -454,8 +454,8 @@ function paintUniv() {
     else if (sug.length === 1) S.univ = sug[0].univ;   /* 후보가 하나뿐이면 바로 엽니다 */
   }
   $('usug').innerHTML = R.univSuggest(sug, S.univ);
-  $('unav').innerHTML = (S.uFrom === 'stu' ? `<button class="navb" data-nav="stu">← ${esc(who)}으로</button>` : '')
-    + (S.univ ? '<button class="navb" data-nav="list">← 대학 목록</button>' : '');
+  $('unav').innerHTML = (S.univ ? '<button class="navb" data-nav="list"><span class="ar">←</span>대학 목록</button>' : '')
+    + (S.uFrom === 'stu' ? `<button class="navb" data-nav="stu"><span class="ar">←</span>${esc(who)}으로</button>` : '');
   if (!S.univ) {
     $('utitle').textContent = '대학별 합격생';
     $('unote').textContent = q ? `「${q}」 — 아래에서 대학을 고르세요` : '합격자가 많은 대학부터 보여 줍니다';
@@ -553,10 +553,17 @@ async function sendHistory() {
 
 /* ── 자료 불러오기 ─────────────────────────────────── */
 
+/* 서버 자료를 풀 때마다 대학 이름을 다듬습니다 — 예전에 올린 자료의 오타(고려대학교(새종) 등)도 바로 맞춰집니다 */
+function unpack(enc) {
+  const h = decode(enc);
+  for (const a of h.apps) a.univ = univFix(a.univ);
+  return h;
+}
+
 async function loadHistory() {
   const cached = await store.get(store.KEY_DATA);
   if (cached?.enc) {
-    S.history = decode(cached.enc);
+    S.history = unpack(cached.enc);
     S.version = cached.version;
     fillYears();
     api.fetchVersion(S.key).then(v => { if (v.version && v.version !== S.version) refresh(); })
@@ -565,7 +572,7 @@ async function loadHistory() {
   }
   screenLoading('지원결과를 불러오는 중', 55);
   const res = await api.fetchData(S.key);
-  S.history = decode(res.data);
+  S.history = unpack(res.data);
   S.version = res.version;
   fillYears();
   await store.set(store.KEY_DATA, { enc: res.data, version: res.version });
@@ -575,7 +582,7 @@ async function refresh() {
   try {
     const res = await api.fetchData(S.key);
     await store.set(store.KEY_DATA, { enc: res.data, version: res.version });
-    S.history = decode(res.data);
+    S.history = unpack(res.data);
     S.version = res.version;
     fillYears();
     S.index = null; S.pmap = null; univStat = null;

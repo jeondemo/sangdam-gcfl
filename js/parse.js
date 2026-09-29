@@ -81,6 +81,28 @@ export function trackOf(type) {
   return '종합';
 }
 
+/* ── 대학 이름 다듬기 ──────────────────────────────────────
+   원본에 같은 대학이 여러 이름으로 적혀 있습니다(오타·띄어쓰기·줄임).
+   대학별 화면에서 한 대학이 두 칩으로 갈라지지 않게 한 이름으로 모읍니다.
+     고려대학교(새종) → 고려대학교(세종) · 동국대학교(wise) → 동국대학교(WISE)
+     차 의과학대학교 → 차의과학대학교 · 조지메이슨 대학 → 조지메이슨대학
+     광운대·호서대·서울과학기술대 → ○○대학교 · 을지대(의정부) → 을지대학교(의정부)
+     카이스트 (KAIST)·카이스트 → KAIST · 유니스트 (UNIST) → UNIST
+     와세다대학교(일본) → 와세다대학교 (나라 표시는 떼고 한 대학으로)
+   화면에 나올 때마다 거치므로, 이미 서버에 올라간 자료도 다시 올리지 않고 바로 맞춰집니다. */
+const UNIV_FIX = [
+  [/\(새종\)/, '(세종)'], [/\(wise\)/i, '(WISE)'],
+  [/^카이스트\s*(\(KAIST\))?$/i, 'KAIST'], [/^유니스트\s*(\(UNIST\))?$/i, 'UNIST'],
+  [/^(.+)\(일본\)$/, '$1'],
+];
+export function univFix(name) {
+  let u = String(name || '').trim().replace(/[（]/g, '(').replace(/[）]/g, ')').replace(/^일본\s+/, '');
+  u = u.replace(/([가-힣])\s+(?=[가-힣])/g, '$1').replace(/\s+\(/g, '(').replace(/\s+/g, ' ');
+  for (const [re, to] of UNIV_FIX) u = u.replace(re, to);
+  u = u.replace(/([가-힣])대(?=$|\()/, '$1대학교');   /* 「광운대」「을지대(의정부)」 — 「○○대학」은 그대로 둡니다 */
+  return u;
+}
+
 /* ── 결과 표기 ─────────────────────────────────────────── */
 
 const isPassWord = s => /^합/.test(s || '');
@@ -149,7 +171,7 @@ export function parseApps(workbook, XLSX, filename) {
     let prevKey = null, p = null, n = 0;
     for (let r = h + 1; r < rows.length; r++) {
       const row = rows[r] || [];
-      const univ = clean(at(row, col.univ));
+      const univ = clean(at(row, col.univ)) && univFix(clean(at(row, col.univ)));
       if (!univ) { prevKey = null; continue; }   /* 빈 줄은 학생 사이의 경계로 봅니다 */
 
       const g = [num(at(row, col.g1)), num(at(row, col.g2)), num(at(row, col.g3)), num(at(row, col.gA)), num(at(row, col.mA)), null];
