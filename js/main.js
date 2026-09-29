@@ -241,6 +241,7 @@ function showApp() {
   fillStudents();
   univStat = null; S.pmap = null;
   setView(S.view);
+  navReplace();
 }
 
 /* 학생을 바꾸거나 목록을 바꿀 때 앞 학생의 값이 한 칸도 남지 않게 전부 비웁니다. */
@@ -389,7 +390,18 @@ function univFind(q) {
   return hit.map(x => x.o).slice(0, 16);
 }
 
+/* ── 화면 이동 ───────────────────────────────────────────
+   학생 상담 ↔ 대학 목록 ↔ 한 대학 화면을 오갈 때마다 브라우저 기록에 남깁니다.
+   그래서 브라우저의 뒤로 가기(마우스 옆 버튼·Alt+←)로도 돌아가고, 화면 위 「← 대학 목록」「← 학생 상담으로」로도 돌아갑니다.
+   학생 상담으로 돌아오면 보던 자리(스크롤·탭)가 그대로입니다. */
+const navState = () => ({ view: S.view, univ: S.univ, from: S.uFrom || null });
+const navPush = () => { try { history.pushState(navState(), ''); } catch { /* 기록을 못 남겨도 화면은 그대로 */ } };
+const navReplace = () => { try { history.replaceState(navState(), ''); } catch { /* 위와 같음 */ } };
+let stuScroll = 0;
+
 function setView(v) {
+  if (S.view === 'stu' && v === 'univ' && !$('results').classList.contains('hidden')) stuScroll = window.scrollY;
+  const back = S.view === 'univ' && v === 'stu';
   S.view = v;
   document.querySelectorAll('#viewchips .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.view === v)));
   const isU = v === 'univ';
@@ -398,18 +410,41 @@ function setView(v) {
   $('uview').classList.toggle('hidden', !isU);
   caseClose();
   if (isU) { $('results').classList.add('hidden'); $('placeholder').classList.add('hidden'); paintUniv(); }
-  else { $('uview').classList.add('hidden'); run(); }
+  else {
+    $('uview').classList.add('hidden'); run();
+    if (back) requestAnimationFrame(() => window.scrollTo({ top: stuScroll }));
+  }
 }
 
-function openUniv(name) {
+/* 대학 목록(검색 첫 화면). 메뉴의 「대학별 합격생」을 누르면 늘 여기부터 시작합니다. */
+function showUnivList(keepFrom) {
+  S.univ = null;
+  if (!keepFrom) S.uFrom = null;
+  $('uq').value = '';
+  setView('univ');
+  window.scrollTo({ top: 0 });
+  navPush();
+}
+
+/* 한 대학 화면. from 은 어디서 왔는지 — 'stu' 면 「← 학생 상담으로」 단추를 띄웁니다. */
+function openUniv(name, from) {
   S.univ = name; UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';
+  if (from !== undefined) S.uFrom = from;
   $('uq').value = name;
   setView('univ');
   window.scrollTo({ top: 0 });
+  navPush();
+}
+
+function backToStu() {
+  S.uFrom = null;
+  setView('stu');
+  navPush();
 }
 
 function paintUniv() {
   const q = $('uq').value.trim();
+  const who = S.cur?.nm ? `${S.cur.nm} 상담` : '학생 상담';
   const sug = univFind(q);
   /* 친 이름과 딱 맞는 대학이 있으면 바로 엽니다 — 「서울대학교」「서울대」 */
   if (q && !S.univ) {
@@ -419,6 +454,8 @@ function paintUniv() {
     else if (sug.length === 1) S.univ = sug[0].univ;   /* 후보가 하나뿐이면 바로 엽니다 */
   }
   $('usug').innerHTML = R.univSuggest(sug, S.univ);
+  $('unav').innerHTML = (S.uFrom === 'stu' ? `<button class="navb" data-nav="stu">← ${esc(who)}으로</button>` : '')
+    + (S.univ ? '<button class="navb" data-nav="list">← 대학 목록</button>' : '');
   if (!S.univ) {
     $('utitle').textContent = '대학별 합격생';
     $('unote').textContent = q ? `「${q}」 — 아래에서 대학을 고르세요` : '합격자가 많은 대학부터 보여 줍니다';
@@ -706,23 +743,42 @@ document.querySelectorAll('#results .tab').forEach(t => t.addEventListener('clic
   selectTab(t.dataset.t); toTop(t.closest('.tabs'));
 }));
 
-bindChips('viewchips', b => setView(b.dataset.view));
-$('uq').addEventListener('input', () => { S.univ = null; paintUniv(); });
+bindChips('viewchips', b => {
+  if (b.dataset.view === 'univ') showUnivList();   /* 메뉴로 들어오면 늘 대학 목록부터 */
+  else if (S.view !== 'stu') backToStu();
+});
+$('unav').addEventListener('click', e => {
+  const b = e.target.closest('.navb[data-nav]'); if (!b) return;
+  if (b.dataset.nav === 'stu') backToStu(); else showUnivList(true);
+});
+window.addEventListener('popstate', e => {
+  const st = e.state;
+  if (!st || $('app').classList.contains('hidden')) return;
+  S.uFrom = st.from || null;
+  if (st.view === 'univ') {
+    S.univ = st.univ || null; $('uq').value = st.univ || '';
+    setView('univ'); window.scrollTo({ top: 0 });
+  } else setView('stu');
+});
+/* 치는 도중 대학이 저절로 열리면(「서울대」) 목록 칸을 지우지 않고 한 칸 새로 남깁니다 — 뒤로 가기가 목록으로 오도록 */
+$('uq').addEventListener('input', () => {
+  S.univ = null; paintUniv();
+  if (S.univ && !history.state?.univ) navPush(); else navReplace();
+});
 $('uq').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  const first = $('usug').querySelector('.uchip'); if (first && !S.univ) { S.univ = first.dataset.univ; paintUniv(); }
+  const first = $('usug').querySelector('.uchip'); if (first && !S.univ) openUniv(first.dataset.univ);
 });
 $('usug').addEventListener('click', e => {
-  const b = e.target.closest('.uchip[data-univ]'); if (!b) return;
-  S.univ = b.dataset.univ; UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';
-  $('uq').value = S.univ; paintUniv();
+  const b = e.target.closest('.uchip[data-univ]'); if (!b || b.dataset.univ === S.univ) return;
+  openUniv(b.dataset.univ);
 });
 $('ubody').addEventListener('click', e => {
   const c = e.target.closest('.chip[data-uf]'); if (!c) return;
   UF[c.dataset.uf] = c.dataset.v; paintUniv();
 });
 $('p-univ').addEventListener('click', e => {
-  const b = e.target.closest('.ulink[data-univ]'); if (b) openUniv(b.dataset.univ);
+  const b = e.target.closest('.ulink[data-univ]'); if (b) openUniv(b.dataset.univ, 'stu');
 });
 
 $('btn-roster').addEventListener('click', () => screenUpload());
