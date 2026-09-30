@@ -32,6 +32,7 @@ function brand() {
     else if (k === 'en2') el.innerHTML = esc(SCHOOL.en).replace(/ (?=[A-Z]+ [A-Z]+$)/, '<br>');   /* 마지막 두 단어를 아랫줄로 */
     else if (k === 'title') el.innerHTML = `${esc(SCHOOL.title[0])}<br><span class="accent">${esc(SCHOOL.title[1])}</span>`;
     else if (k === 'titleEn') el.textContent = SCHOOL.titleEn;
+    else if (k === 'motto') el.innerHTML = SCHOOL.motto?.length ? `<span>${esc(SCHOOL.motto[0])}</span><b>${esc(SCHOOL.motto[1] || '')}</b>` : '';
   });
 }
 
@@ -251,8 +252,10 @@ function clearStudent() {
   $('gpa').value = '';
   $('gpanote').textContent = '';
   $('gpasubs').innerHTML = '';
-  $('gpa5c').classList.add('hidden');
+  $('gpa5').value = '';
+  from5 = false;
   $('gpa5c').classList.remove('est');
+  $('gpa5c').classList.toggle('hidden', !fit59());   /* 5등급 명단이 있으면 직접 입력에서도 5등급 칸을 둡니다 */
   $('stucard').classList.add('hidden');
 }
 
@@ -296,9 +299,10 @@ function onStudentChange() {
     return showEmpty(`이 학생은 파일에 <b>성적이 비어</b> 있습니다(석차 ${S.cur.r ?? '—'}위). 내신 전학년(9등급)을 위 칸에 직접 넣으면 볼 수 있습니다.`);
   }
   $('gpa').value = S.cur.g[3].toFixed(2);
+  if (S.cur.a5 == null) $('gpa5c').classList.add('hidden');   /* 9등급 세대(3학년) 학생 */
   if (S.cur.a5 != null) {
     /* 5등급 세대 — 9등급 칸은 석차백분율로 환산한 값입니다 */
-    $('gpa5').textContent = S.cur.a5.toFixed(2);
+    $('gpa5').value = S.cur.a5.toFixed(2);
     $('gpa5c').classList.remove('hidden');
     $('gpa5c').title = '학교 파일의 5등급 평균입니다. 9등급 칸은 석차백분율을 졸업생 곡선으로 환산한 값입니다.';
     $('gpasubs').innerHTML = `<div class="cbt">석차 → 9등급</div>
@@ -313,7 +317,32 @@ function onStudentChange() {
 /* ── 분석 ──────────────────────────────────────────── */
 
 const numOf = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
-let selGy = -1;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/* 5등급 ↔ 9등급 환산식 — 그 학년 명단에서 「5등급 평균 → 9등급 환산(석차 기준)」을 직선으로 맞춥니다.
+   학년마다 기울기가 다릅니다(1학년은 한 학기뿐이라 더 가파름): 1학년 9 ≈ −0.52 + 1.82×5, 2학년 9 ≈ 0.02 + 1.59×5, 평균 오차 0.05.
+   학생을 고르면 그 학생 학년, 학급만 골랐으면 그 학년, 아니면 가장 높은 5등급 학년의 식을 씁니다. */
+let from5 = false;              // 9등급 칸이 5등급에서 환산된 값인지
+const fitCache = new WeakMap();
+function fit59() {
+  const sets = S.roster?.sets; if (!sets) return null;
+  const five = Object.keys(sets).map(Number).filter(g => sets[g]?.meta?.has5);
+  if (!five.length) return null;
+  const cg = Math.floor(Number($('cls')?.value || 0) / 100);
+  const g = S.cur ? gradeOf(S.cur) : (five.includes(cg) ? cg : Math.max(...five));
+  const set = sets[g]; if (!set?.meta?.has5) return null;
+  if (fitCache.has(set)) return fitCache.get(set);
+  const pts = set.students.filter(x => x.a5 != null && x.g?.[3] != null).map(x => [x.a5, x.g[3]]);
+  let f = null;
+  if (pts.length >= 10) {
+    const n = pts.length, mx = pts.reduce((a, p) => a + p[0], 0) / n, my = pts.reduce((a, p) => a + p[1], 0) / n;
+    const sxx = pts.reduce((a, p) => a + (p[0] - mx) ** 2, 0);
+    if (sxx) { const b = pts.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0) / sxx; f = { a: my - b * mx, b }; }
+  }
+  fitCache.set(set, f);
+  return f;
+}
+const selGy = -1;   /* 계열 거르기는 쓰지 않습니다(외고는 인문사회에 몰려 있어 갈라 볼 뜻이 적음) */
 
 let emptyDefault = null;
 function showEmpty(msg) {
@@ -340,7 +369,7 @@ function run() {
   $('rtitle').textContent = S.cur ? `${S.cur.nm} · 유사 사례` : '유사 사례';
   $('rnote').textContent = `내신 ${lo.toFixed(2)}~${hi.toFixed(2)} 구간 졸업생 ${sel.length}명 기준`;
   $('stats').innerHTML = R.statBar(sel, sum);
-  $('headline').innerHTML = R.headline(sum, sel, gpa, S.cur?.nm, S.cur?.a5 != null && Math.abs(gpa - S.cur.g[3]) < 0.005);
+  $('headline').innerHTML = R.headline(sum, sel, gpa, S.cur?.nm, from5 || (S.cur?.a5 != null && Math.abs(gpa - S.cur.g[3]) < 0.005));
   S.cases = R.buildCases(sel, rows);
   $('p-stu').innerHTML = R.similarStudents(S.cases);
   applyCaseFilter();
@@ -778,17 +807,38 @@ $('f-history').addEventListener('change', e => { if (e.target.files.length) pick
 $('cls').addEventListener('change', fillStudents);
 $('q').addEventListener('input', fillStudents);
 $('stu').addEventListener('change', onStudentChange);
-$('gpa').addEventListener('input', () => {
+function gpaNote() {
   const v = parseFloat($('gpa').value);
   const off = S.cur?.g?.[3] != null && !isNaN(v) && Math.abs(v - S.cur.g[3]) > 0.004;
-  $('gpanote').textContent = off ? `· ${S.cur.nm} 실제 ${S.cur.g[3].toFixed(2)}${S.cur.a5 != null ? ' (환산)' : ''}` : '';
+  $('gpanote').textContent = off ? `· ${S.cur.nm} 실제 ${S.cur.a5 != null ? `5등급 ${S.cur.a5.toFixed(2)} / ` : ''}9등급 ${S.cur.g[3].toFixed(2)}${S.cur.a5 != null ? ' (환산)' : ''}` : '';
+}
+/* 9등급을 고치면 5등급 칸이 따라갑니다(추정) */
+$('gpa').addEventListener('input', () => {
+  from5 = false;
+  const v = parseFloat($('gpa').value), f = fit59();
+  if (f && !$('gpa5c').classList.contains('hidden')) {
+    const real = S.cur?.a5 != null && !isNaN(v) && Math.abs(v - S.cur.g[3]) < 0.005;
+    $('gpa5').value = isNaN(v) ? '' : (real ? S.cur.a5 : clamp((v - f.a) / f.b, 1, 5)).toFixed(2);
+    $('gpa5c').classList.toggle('est', !real && !isNaN(v));
+  }
+  gpaNote();
+});
+/* 5등급을 고치면 9등급 칸을 환산해서 채우고 다시 찾습니다 */
+$('gpa5').addEventListener('input', () => {
+  const v = parseFloat($('gpa5').value), f = fit59();
+  if (!f) return;
+  const real = S.cur?.a5 != null && !isNaN(v) && Math.abs(v - S.cur.a5) < 0.005;
+  $('gpa').value = isNaN(v) ? '' : (real ? S.cur.g[3] : clamp(f.a + f.b * v, 1, 9)).toFixed(2);
+  from5 = !isNaN(v);
+  $('gpa5c').classList.remove('est');
+  gpaNote();
+  clearTimeout(timer); timer = setTimeout(run, 350);
 });
 
 let timer = null;
 ['gpa', 'topn', 'yrs'].forEach(id =>
   $(id).addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 350); }));
 
-bindChips('gychips', b => { selGy = +b.dataset.gy; run(); });
 
 document.querySelectorAll('#results .tab').forEach(t => t.addEventListener('click', () => {
   selectTab(t.dataset.t); toTop(t.closest('.tabs'));

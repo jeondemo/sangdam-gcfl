@@ -60,7 +60,8 @@
             <div class="gcard">
               <div class="cbt">전학년</div>
               <div class="cbv">
-                <div id="gpa5c" class="hidden"><span>5등급</span><b id="gpa5">—</b></div>
+                <div id="gpa5c" class="hidden"><span>5등급</span>
+                  <input type="number" id="gpa5" step="0.01" min="1" max="5" placeholder="2.50"></div>
                 <div><span>9등급</span>
                   <input type="number" id="gpa" step="0.01" min="1" max="9" placeholder="3.45"></div>
               </div>
@@ -70,15 +71,6 @@
         </div>
       </div>
 
-      <label class="lbl">희망 계열</label>
-      <div class="chips" id="gychips">
-        <button class="chip" data-gy="-1" aria-pressed="true">전체</button>
-        <button class="chip" data-gy="0">어문</button>
-        <button class="chip" data-gy="1">사회·상경</button>
-        <button class="chip" data-gy="2">자연·의약</button>
-        <button class="chip" data-gy="3">예체능</button>
-        <button class="chip" data-gy="4">기타</button>
-      </div>
       </div>
 
       <div class="row2 mt" id="sb-nums">
@@ -92,6 +84,7 @@
         <button class="sb-btn" id="btn-roster">내신 석차 파일 다시 올리기</button>
         <button class="sb-btn ghost" id="btn-wipe">이 컴퓨터에서 자료 지우기</button>
       </div>
+      <div class="sb-motto" data-school="motto"></div>
       <div class="sb-foot">서버 전송 없음 · 명단은 이 브라우저 안에서만</div>
     </div>
   </aside>

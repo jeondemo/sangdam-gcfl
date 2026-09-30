@@ -766,7 +766,7 @@ table.jgtbl td.b{font-weight:700}
 .cbv>div.g9{background:rgba(30,48,120,.42)}
 
 /* 5등급 추정치 — 9등급을 손으로 바꿨을 때. 실제 값과 구분되게 옅게 */
-.cbv>div#gpa5c.est b{color:#a9b6dc;font-weight:700}
+.cbv>div#gpa5c.est b,.cbv>div#gpa5c.est input{color:#a9b6dc}
 .cbv>div#gpa5c.est span::after{content:" 추정";color:#dbb97f;font-weight:700}
 
 /* ── 분야 안내 (①②③ + 학교 메모) ── */
@@ -1096,3 +1096,10 @@ table.jgtbl td.b{font-weight:700}
 /* 슬로건이 길어 글자 사이를 좁힙니다 */
 .cv-motto .m{font-size:clamp(16px,1.6vw,22px);letter-spacing:3px}
 .cv-motto .m b{letter-spacing:3.5px}
+/* 사이드바 아래 슬로건 — 교표 워터마크 위에 */
+.sb-motto{margin-top:30px;text-align:center;position:relative}
+.sb-motto:empty{display:none}
+.sb-motto::before{content:"";display:block;width:40px;height:1px;margin:0 auto 12px;background:rgba(217,190,134,.55)}
+.sb-motto span{display:block;font-size:11px;font-weight:400;letter-spacing:2.4px;color:#c6d0ea}
+.sb-motto b{display:block;margin-top:3px;font-size:12.5px;font-weight:800;letter-spacing:2.6px;color:var(--gold)}
+
