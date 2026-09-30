@@ -1085,3 +1085,14 @@ table.jgtbl td.b{font-weight:700}
 .ulist .cp.main{color:#1e2e68;background:#eaf1fe;border-color:#cddcfb}
 
 
+
+/* ── 외고 교표 · 슬로건 ─────────────────────────────
+   교표가 방패 모양(세로로 긴 남색 바탕 + 금색 테두리)이라, 네모 칩 안에 넣지 않고 그대로 세웁니다. */
+.cv-chip,.sb-chip{background:none;border:none;box-shadow:none;border-radius:0;width:auto;height:auto}
+.cv-chip img{height:50px;width:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+.sb-chip img{height:54px;width:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+.wm{height:460px;opacity:.07}
+.sb-wm{height:240px;right:-40px;bottom:-24px;opacity:.06}
+/* 슬로건이 길어 글자 사이를 좁힙니다 */
+.cv-motto .m{font-size:clamp(16px,1.6vw,22px);letter-spacing:3px}
+.cv-motto .m b{letter-spacing:3.5px}
