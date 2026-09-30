@@ -1020,6 +1020,7 @@ table.jgtbl td.b{font-weight:700}
 .uchip{font:inherit;font-size:12.5px;font-weight:700;color:#34435a;background:#f3f6fb;border:1px solid #dde4ef;border-radius:99px;
   padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .uchip .c{font-size:10.5px;font-weight:700;color:var(--pass);background:var(--pass-soft);border-radius:99px;padding:1px 6px}
+.uchip .c.z{color:#9aa6b6;background:#f0f2f6}
 .uchip:hover{border-color:#b8c6dc}
 .uchip[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68;color:#fff}
 .uchip[aria-pressed=true] .c{background:rgba(255,255,255,.18);color:#fff}
@@ -1064,3 +1065,23 @@ table.jgtbl td.b{font-weight:700}
 .navb[data-nav="list"]:hover{background:#1d4ed8;border-color:#1d4ed8}
 .navb[data-nav="stu"]{background:#fff;color:#1e2e68;border-color:#1e2e68}
 .navb[data-nav="stu"]:hover{background:#eef3fc}
+
+/* 캠퍼스 고르기 */
+.campbar{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:10px 14px;margin-bottom:12px}
+.campbar .fl{font-size:11px;font-weight:800;color:var(--faint);align-self:center;width:40px;flex:none}
+.camp{font:inherit;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;
+  background:#f3f6fb;border:1.5px solid #dde4ef;border-radius:10px;padding:7px 14px;min-width:120px;text-align:left}
+.camp b{font-size:13.5px;font-weight:800;color:#1c2733}
+.camp span{font-size:11px;color:var(--faint);font-weight:600}
+.camp span em{font-style:normal;color:var(--pass);font-weight:800}
+.camp:hover{border-color:#9fb3d6}
+.camp[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68}
+.camp[aria-pressed=true] b{color:#fff}
+.camp[aria-pressed=true] span{color:#c9d3ea}
+.camp[aria-pressed=true] span em{color:#ffb4b4}
+.ulist .cp{display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:0 6px;margin-right:6px;
+  color:#6d4bc4;background:#f1ecfd;border:1px solid #ddd2f7}
+.ulist .cp.main{color:#1e2e68;background:#eaf1fe;border-color:#cddcfb}
+
+

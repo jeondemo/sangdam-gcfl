@@ -5,6 +5,7 @@ import * as api from './api.js';
 import { encode, decode } from './codec.js';
 import { parseApps, mergeApps, parseRoster, ROSTER_PV, univFix } from './parse.js';
 import { fixHcell } from './xlfix.js';
+import { UNIV_TIERS, UNIV_KINDS, MAIN_COUNT } from './rank.js';
 import { buildIndex, findSimilar, summarize, aggregateUniv, aggregateTrack } from './match.js';
 import * as R from './render.js';
 
@@ -362,31 +363,61 @@ const ALIAS = [[/^외대|^한국외대/, '한국외국어대'], [/^이대/, '이
   [/^고대/, '고려대'], [/^연대/, '연세대'], [/^시립대/, '서울시립대'], [/^서울대/, '서울대'], [/^카이스트/i, 'KAIST'], [/^포스텍/i, '포항공과대']];
 const unorm = s => String(s || '').replace(/\s+/g, '').replace(/대학교/g, '대').toLowerCase();
 
-let univStat = null;   // 대학 → { univ, n, h }
+/* 대학 목록은 캠퍼스를 한데 모은 「대학」 단위입니다(연세대학교 = 본교 + 미래).
+   캠퍼스는 대학 화면에 들어가서 고릅니다. */
+const baseOf = u => String(u || '').replace(/\s*\(.*\)$/, '');
+const campOf = u => (String(u || '').match(/\(([^()]*)\)$/) || [])[1] || '';
+
+let univStat = null;   // 대학 → { univ, n, h, camps: [{ name, label, n, h }] }
 function univList() {
   if (univStat) return univStat;
   const m = new Map();
   for (const a of S.history.apps) {
-    if (!m.has(a.univ)) m.set(a.univ, { univ: a.univ, n: 0, h: 0 });
-    const o = m.get(a.univ); o.n++; if (a.res === '합격' || a.res === '추합') o.h++;
+    const b = baseOf(a.univ);
+    if (!m.has(b)) m.set(b, { univ: b, n: 0, h: 0, cm: new Map() });
+    const o = m.get(b);
+    if (!o.cm.has(a.univ)) o.cm.set(a.univ, { name: a.univ, label: campOf(a.univ), n: 0, h: 0 });
+    const c = o.cm.get(a.univ);
+    const pass = a.res === '합격' || a.res === '추합';
+    o.n++; c.n++; if (pass) { o.h++; c.h++; }
+  }
+  for (const o of m.values()) {
+    /* 괄호 없는 이름(본교)을 맨 앞에, 나머지는 지원 많은 순 */
+    o.camps = [...o.cm.values()].sort((a, b) => (a.label ? 1 : 0) - (b.label ? 1 : 0) || b.n - a.n);
+    delete o.cm;
   }
   return (univStat = [...m.values()].sort((a, b) => b.h - a.h || b.n - a.n));
+}
+const univInfo = b => univList().find(o => o.univ === b);
+
+/* 선호도 순위 — rank.js 의 묶음 순서. 묶음에 없는 대학은 뒤로 */
+let rankMap = null;
+function rankOf(u) {
+  if (!rankMap) { rankMap = new Map(); UNIV_TIERS.forEach(([, names], t) => names.forEach((n, i) => rankMap.set(n, t * 100 + i))); }
+  if (rankMap.has(u)) return rankMap.get(u);
+  const k = UNIV_KINDS.findIndex(([, re]) => re.test(u));
+  return k >= 0 ? 5000 + k * 100 : 9000;
+}
+
+/* 검색 전 첫 화면 — 주요 대학을 선호도 순(서연고 · 서성한 · 중경외시 …)으로, 합격자가 있는 곳만 MAIN_COUNT 곳 */
+function univMain() {
+  return univList().filter(o => o.h > 0 && rankOf(o.univ) < 5000)
+    .sort((a, b) => rankOf(a.univ) - rankOf(b.univ)).slice(0, MAIN_COUNT);
 }
 
 /* 친 글자를 줄임말까지 풀어 비교 열쇠로 바꿉니다 — 「외대」→「한국외국어대」 */
 function univKeyOf(q) {
-  let k = unorm(q);
+  let k = unorm(q).replace(/\(.*$/, '');
   for (const [re, to] of ALIAS) if (re.test(k)) { k = unorm(to) + k.replace(re, '').replace(/^대/, ''); break; }
   return k;
 }
-const baseName = u => unorm(u).replace(/\(.*\)$/, '');
 
 function univFind(q) {
   const k = univKeyOf(q);
-  if (!k) return univList().filter(o => o.h).slice(0, 16);
-  /* 앞에서부터 맞는 이름 → 본교(괄호 없는 이름) → 합격 많은 순 */
-  const hit = univList().map(o => { const u = unorm(o.univ); return { o, at: u.startsWith(k) ? 0 : (u.includes(k) ? 1 : -1), camp: /\(/.test(o.univ) ? 1 : 0 }; })
-    .filter(x => x.at >= 0).sort((a, b) => a.at - b.at || a.camp - b.camp || b.o.h - a.o.h || b.o.n - a.o.n);
+  if (!k) return [];
+  /* 앞에서부터 맞는 이름 → 선호도 순 → 합격 많은 순 */
+  const hit = univList().map(o => { const u = unorm(o.univ); return { o, at: u.startsWith(k) ? 0 : (u.includes(k) ? 1 : -1), r: rankOf(o.univ) }; })
+    .filter(x => x.at >= 0).sort((a, b) => a.at - b.at || a.r - b.r || b.o.h - a.o.h || b.o.n - a.o.n);
   return hit.map(x => x.o).slice(0, 16);
 }
 
@@ -394,7 +425,7 @@ function univFind(q) {
    학생 상담 ↔ 대학 목록 ↔ 한 대학 화면을 오갈 때마다 브라우저 기록에 남깁니다.
    그래서 브라우저의 뒤로 가기(마우스 옆 버튼·Alt+←)로도 돌아가고, 화면 위 「← 대학 목록」「← 학생 상담으로」로도 돌아갑니다.
    학생 상담으로 돌아오면 보던 자리(스크롤·탭)가 그대로입니다. */
-const navState = () => ({ view: S.view, univ: S.univ, from: S.uFrom || null });
+const navState = () => ({ view: S.view, univ: S.univ, camp: S.camp || null, from: S.uFrom || null });
 const navPush = () => { try { history.pushState(navState(), ''); } catch { /* 기록을 못 남겨도 화면은 그대로 */ } };
 const navReplace = () => { try { history.replaceState(navState(), ''); } catch { /* 위와 같음 */ } };
 let stuScroll = 0;
@@ -418,7 +449,7 @@ function setView(v) {
 
 /* 대학 목록(검색 첫 화면). 메뉴의 「대학별 합격생」을 누르면 늘 여기부터 시작합니다. */
 function showUnivList(keepFrom) {
-  S.univ = null;
+  S.univ = null; S.camp = null;
   if (!keepFrom) S.uFrom = null;
   $('uq').value = '';
   setView('univ');
@@ -427,10 +458,14 @@ function showUnivList(keepFrom) {
 }
 
 /* 한 대학 화면. from 은 어디서 왔는지 — 'stu' 면 「← 학생 상담으로」 단추를 띄웁니다. */
+/* 한 대학 화면. name 은 대학(연세대학교)이나 캠퍼스(연세대학교(미래)) 어느 쪽이든 됩니다.
+   캠퍼스로 들어오면 그 캠퍼스를, 대학으로 들어오면 본교를 먼저 보여 줍니다.
+   from 은 어디서 왔는지 — 'stu' 면 「← 학생 상담으로」 단추를 띄웁니다. */
 function openUniv(name, from) {
-  S.univ = name; UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';
+  S.univ = baseOf(name); S.camp = campOf(name) ? name : null;
+  UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';
   if (from !== undefined) S.uFrom = from;
-  $('uq').value = name;
+  $('uq').value = S.univ;
   setView('univ');
   window.scrollTo({ top: 0 });
   navPush();
@@ -449,26 +484,35 @@ function paintUniv() {
   /* 친 이름과 딱 맞는 대학이 있으면 바로 엽니다 — 「서울대학교」「서울대」 */
   if (q && !S.univ) {
     const k = univKeyOf(q);
-    const exact = sug.find(o => unorm(o.univ) === k) || sug.find(o => baseName(o.univ) === k || baseName(o.univ) === k + '대');
+    const exact = sug.find(o => unorm(o.univ) === k || unorm(o.univ) === k + '대');
     if (exact) S.univ = exact.univ;
     else if (sug.length === 1) S.univ = sug[0].univ;   /* 후보가 하나뿐이면 바로 엽니다 */
+    if (S.univ) {
+      S.camp = campOf(q) ? univInfo(S.univ)?.camps.find(c => unorm(c.name) === unorm(q))?.name || null : null;
+      UF.res = 'pass'; UF.tr = 'all'; UF.yr = 'all';   /* 새 대학은 거르기 없이 시작 */
+    }
   }
-  $('usug').innerHTML = R.univSuggest(sug, S.univ);
+  $('usug').innerHTML = R.univSuggest(q ? sug : univMain(), S.univ);
   $('unav').innerHTML = (S.univ ? '<button class="navb" data-nav="list"><span class="ar">←</span>대학 목록</button>' : '')
     + (S.uFrom === 'stu' ? `<button class="navb" data-nav="stu"><span class="ar">←</span>${esc(who)}으로</button>` : '');
   if (!S.univ) {
     $('utitle').textContent = '대학별 합격생';
-    $('unote').textContent = q ? `「${q}」 — 아래에서 대학을 고르세요` : '합격자가 많은 대학부터 보여 줍니다';
+    $('unote').textContent = q ? `「${q}」 — 아래에서 대학을 고르세요` : `주요 대학 ${univMain().length}곳 · 서연고·서성한·중경외시 순 · 다른 대학은 이름으로 찾으세요`;
     $('ubody').innerHTML = '';
     return;
   }
-  const all = S.history.apps.filter(a => a.univ === S.univ);
+  const info = univInfo(S.univ);
+  const camps = info?.camps || [];
+  /* 캠퍼스를 따로 고르지 않았으면 본교(첫 캠퍼스). 캠퍼스가 하나뿐이면 그 캠퍼스. */
+  if (!S.camp || (S.camp !== 'all' && !camps.some(c => c.name === S.camp))) S.camp = camps[0]?.name || null;
+  const all = S.history.apps.filter(a => baseOf(a.univ) === S.univ && (S.camp === 'all' || a.univ === S.camp));
   if (!S.pmap) S.pmap = new Map(S.history.persons.map(p => [p.pk, p]));
   const gv = numOf('gpa');
   const me = S.cur && gv != null ? { g: gv, nm: S.cur.nm, est: S.cur.a5 != null && Math.abs(gv - S.cur.g[3]) < 0.005 } : (gv != null ? { g: gv, nm: '입력한 내신' } : null);
+  const cl = S.camp === 'all' ? '전체 캠퍼스' : (campOf(S.camp) ? `${campOf(S.camp)} 캠퍼스` : (camps.length > 1 ? '본교' : ''));
   $('utitle').textContent = S.univ;
-  $('unote').textContent = `${S.history.meta.years.join('·')}학년도 수시`;
-  $('ubody').innerHTML = R.univPage(S.univ, all, S.pmap, UF, me);
+  $('unote').textContent = `${cl ? cl + ' · ' : ''}${S.history.meta.years.join('·')}학년도 수시`;
+  $('ubody').innerHTML = R.univPage(S.univ, all, S.pmap, UF, me, { camps, cur: S.camp, total: info });
 }
 
 /* ── 관리자 ────────────────────────────────────────── */
@@ -763,13 +807,13 @@ window.addEventListener('popstate', e => {
   if (!st || $('app').classList.contains('hidden')) return;
   S.uFrom = st.from || null;
   if (st.view === 'univ') {
-    S.univ = st.univ || null; $('uq').value = st.univ || '';
+    S.univ = st.univ || null; S.camp = st.camp || null; $('uq').value = st.univ || '';
     setView('univ'); window.scrollTo({ top: 0 });
   } else setView('stu');
 });
 /* 치는 도중 대학이 저절로 열리면(「서울대」) 목록 칸을 지우지 않고 한 칸 새로 남깁니다 — 뒤로 가기가 목록으로 오도록 */
 $('uq').addEventListener('input', () => {
-  S.univ = null; paintUniv();
+  S.univ = null; S.camp = null; paintUniv();
   if (S.univ && !history.state?.univ) navPush(); else navReplace();
 });
 $('uq').addEventListener('keydown', e => {
@@ -781,6 +825,8 @@ $('usug').addEventListener('click', e => {
   openUniv(b.dataset.univ);
 });
 $('ubody').addEventListener('click', e => {
+  const cp = e.target.closest('.camp[data-camp]');
+  if (cp) { if (cp.dataset.camp !== S.camp) { S.camp = cp.dataset.camp; UF.tr = 'all'; UF.yr = 'all'; paintUniv(); navPush(); } return; }
   const c = e.target.closest('.chip[data-uf]'); if (!c) return;
   UF[c.dataset.uf] = c.dataset.v; paintUniv();
 });

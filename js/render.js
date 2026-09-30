@@ -226,13 +226,29 @@ export function caseView(c, i, n) {
 const median = v => { if (!v.length) return null; const s = [...v].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const isRe = a => /\/G\//.test(a.pk);
 
+/* 칩에는 흔히 부르는 짧은 이름으로 — 서울대학교 → 서울대, 한국외국어대학교 → 한국외대, 이화여자대학교 → 이화여대 */
+export const shortUniv = u => String(u || '').replace(/대학교$/, '대').replace(/^한국외국어대$/, '한국외대').replace(/여자대$/, '여대');
+
 /* 검색 제안 칩 */
 export function univSuggest(list, picked) {
   if (!list.length) return '<span class="none">맞는 대학이 없습니다. 이름을 줄여서(예: 「외대」「시립대」) 찾아보세요.</span>';
-  return list.map(o => `<button class="uchip" data-univ="${esc(o.univ)}" aria-pressed="${o.univ === picked}">${esc(o.univ)}<span class="c">합격 ${o.h}</span></button>`).join('');
+  return list.map(o => `<button class="uchip" data-univ="${esc(o.univ)}" aria-pressed="${o.univ === picked}" title="${esc(o.univ)}">${esc(shortUniv(o.univ))}<span class="c${o.h ? '' : ' z'}">합격 ${o.h}</span></button>`).join('');
 }
 
-export function univPage(univ, all, pmap, f, me) {
+/* 캠퍼스 고르기 — 캠퍼스가 둘 이상인 대학만. 본교 → 분교 → 전체 순 */
+function campBar(cp) {
+  if (!cp || (cp.camps || []).length < 2) return '';
+  const lab = c => (c.label ? `${c.label} 캠퍼스` : '본교');
+  const btn = (v, label, h, n) => `<button class="camp" data-camp="${esc(v)}" aria-pressed="${cp.cur === v}">
+    <b>${esc(label)}</b><span>합격 <em>${h}</em> · 지원 ${n}</span></button>`;
+  return `<div class="campbar"><span class="fl">캠퍼스</span>
+    ${cp.camps.map(c => btn(c.name, lab(c), c.h, c.n)).join('')}
+    ${btn('all', '전체 캠퍼스', cp.total?.h ?? 0, cp.total?.n ?? 0)}</div>`;
+}
+
+export function univPage(univ, all, pmap, f, me, cp) {
+  const showCamp = cp?.cur === 'all' && (cp.camps || []).length > 1;
+  const campTag = a => { const m = String(a.univ).match(/\(([^()]*)\)$/); return showCamp ? `<span class="cp${m ? '' : ' main'}">${esc(m ? m[1] : '본교')}</span>` : ''; };
   const pass = all.filter(a => isPass({ a }));
   const people = new Set(all.map(a => a.pk)), passPeople = new Set(pass.map(a => a.pk));
   const gOf = a => pmap.get(a.pk)?.g || [];
@@ -282,7 +298,7 @@ export function univPage(univ, all, pmap, f, me) {
       <td class="n mut nw">${[0, 1, 2].map(k => f2(r.g[k])).join(' · ')}</td>
       <td class="nw">${r.a.y}${isRe(r.a) ? ' <span class="re">재수</span>' : ''}</td>
       <td class="ty"><span class="tb">${esc(r.a.track)}</span>${esc(r.a.type || '')}</td>
-      <td>${esc(r.a.dept || '')}</td>
+      <td>${campTag(r.a)}${esc(r.a.dept || '')}</td>
       <td class="rt nw">${minTag(r.a)}${firstTag(r.a)}${waitTag(r.a)}${resTag(r.a)}</td>
     </tr>`);
   if (meAt >= 0) body.splice(meAt, 0, meRow);
@@ -293,8 +309,9 @@ export function univPage(univ, all, pmap, f, me) {
       <tbody>${body.join('')}</tbody></table></div>`
     : '<div class="empty">조건에 맞는 기록이 없습니다.</div>';
 
-  return `${stats}
-    <div class="note">${esc(univ)}에 <b>${years.join('·')}학년도</b> 동안 ${people.size}명이 ${all.length}장을 썼고, <b>${passPeople.size}명</b>이 붙었습니다.
+  const where = cp?.cur && cp.cur !== 'all' && (cp.camps || []).length > 1 ? (/\(/.test(cp.cur) ? `${esc(cp.cur.match(/\(([^()]*)\)$/)[1])} 캠퍼스` : '본교') : '';
+  return `${campBar(cp)}${stats}
+    <div class="note">${esc(univ)}${where ? ` ${where}` : ''}에 <b>${years.join('·')}학년도</b> 동안 ${people.size}명이 ${all.length}장을 썼고, <b>${passPeople.size}명</b>이 붙었습니다.
       아래 목록은 <b>내신(9등급 전학년)이 좋은 순</b>입니다. 이름은 자료에 없습니다.</div>
     <div class="usec"><h3>전형 갈래별</h3>${tbl}</div>
     <div class="usec"><h3>${f.res === 'all' ? '지원' : '합격'} 목록 <span class="snote">${rows.length}건</span></h3>${tools}${list}</div>`;
