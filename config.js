@@ -17,7 +17,7 @@ export const SCHOOL = {
   ko: '과천외국어고등학교',
   en: 'GWACHEON FOREIGN LANGUAGE HIGH SCHOOL',
   since: 'SINCE · 1990',
-  motto: ['LANGUAGE · WORLD ·', 'FUTURE'],
+    motto: ['HEADING FOR THE WORLD', '& FOR THE FUTURE!'],
   title: ['과천외국어고등학교', '진학상담 프로그램'],
   titleEn: 'COLLEGE ADMISSION COUNSELING',
   dept: '진학 담당 부서',   /* 「○○에서 받은 전용 링크로 접속해 주세요」에 들어가는 이름 */
