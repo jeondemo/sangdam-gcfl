@@ -141,8 +141,11 @@
   </div>
 </div>
 
-<input type="file" id="f-roster" accept=".xlsx,.xls" multiple hidden>
-<input type="file" id="f-history" accept=".xlsx,.xls" multiple hidden>
+<!-- 파일 고르기 창에 거르기(accept)를 걸지 않습니다. 휴대폰은 확장자가 아니라 파일 종류(MIME)로 거르는데,
+     학교 프로그램이 내보낸 .XLS(대문자)·메신저로 받은 파일은 종류가 「알 수 없음」으로 잡혀 목록에서 아예 안 보이거나 흐리게 막힙니다.
+     엑셀이 아닌 파일을 고르면 읽을 때 「읽지 못했습니다」로 알려 줍니다. -->
+<input type="file" id="f-roster" multiple hidden>
+<input type="file" id="f-history" multiple hidden>
 
 <script src="./vendor/xlsx.full.min.js"></script>
 <script type="module" src="./js/main.js"></script>

@@ -176,7 +176,11 @@ const keepChecked = () => $('keep') ? $('keep').checked : true;
 /* 엑셀 읽기 — 한셀로 저장한 파일은 먼저 손봅니다 */
 async function readBook(file) {
   const bytes = fixHcell(new Uint8Array(await file.arrayBuffer()), XLSX);
-  return XLSX.read(bytes, { type: 'array' });
+  let wb;
+  try { wb = XLSX.read(bytes, { type: 'array' }); }
+  catch { throw new Error(`${file.name} 은(는) 엑셀 파일로 열리지 않습니다. 학교 프로그램에서 받은 .xls/.xlsx 파일을 골라 주세요.`); }
+  if (!wb?.SheetNames?.length) throw new Error(`${file.name} 에 시트가 없습니다. 엑셀 파일이 맞는지 확인해 주세요.`);
+  return wb;
 }
 
 function buildRoster(sets) {
