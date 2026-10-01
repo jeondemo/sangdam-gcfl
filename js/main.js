@@ -375,7 +375,7 @@ function showEmpty(msg) {
 function run() {
   if (!S.index) return;
   if (S.view === 'univ') return paintUniv();
-  if (S.view === 'dept' || S.view === 'band') return paintPool();
+  if (isPool(S.view)) return paintPool();
   caseClose();
   const gpa = numOf('gpa');
   if (gpa == null) return showEmpty();
@@ -477,17 +477,18 @@ function univFind(q) {
    학생 상담 ↔ 대학 목록 ↔ 한 대학 화면을 오갈 때마다 브라우저 기록에 남깁니다.
    그래서 브라우저의 뒤로 가기(마우스 옆 버튼·Alt+←)로도 돌아가고, 화면 위 「← 대학 목록」「← 학생 상담으로」로도 돌아갑니다.
    학생 상담으로 돌아오면 보던 자리(스크롤·탭)가 그대로입니다. */
-const navState = () => ({ view: S.view, univ: S.univ, camp: S.camp || null, from: S.uFrom || null, hak: S.hak || null, band: S.band || null });
+const navState = () => ({ view: S.view, univ: S.univ, camp: S.camp || null, from: S.uFrom || null, hak: S.hak || null, band: S.band || null, mq: S.mq || '' });
 const navPush = () => { try { history.pushState(navState(), ''); } catch { /* 기록을 못 남겨도 화면은 그대로 */ } };
 const navReplace = () => { try { history.replaceState(navState(), ''); } catch { /* 위와 같음 */ } };
 let stuScroll = 0;
 
+const isPool = v => v === 'dept' || v === 'band' || v === 'major';
 function setView(v) {
   if (S.view === 'stu' && v !== 'stu' && !$('results').classList.contains('hidden')) stuScroll = window.scrollY;
   const back = S.view !== 'stu' && v === 'stu';
   S.view = v;
   document.querySelectorAll('#viewchips .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.view === v)));
-  const side = v === 'stu', pool = v === 'dept' || v === 'band';
+  const side = v === 'stu', pool = isPool(v);
   $('sb-cond').classList.toggle('hidden', !side);
   $('sb-nums').classList.toggle('hidden', !side);
   $('uview').classList.toggle('hidden', v !== 'univ');
@@ -548,9 +549,32 @@ function defaultBand() {
 }
 const BAND_PRESET = [[1.0, 1.5], [1.5, 2.0], [2.0, 2.5], [2.5, 3.0], [3.0, 3.5], [3.5, 4.0], [4.0, 4.5], [4.5, 5.5], [5.5, 9.0]];
 
+/* ── 전공별 합격생 — 대학 모집단위 이름으로 찾기 ──────────────
+   찾는 말을 띄어 쓰면 그중 하나라도 든 모집단위를 모읍니다(「미디어 언론」→ 미디어학부·언론정보학과 …).
+   아래 묶음은 자주 찾는 전공 단추입니다. 누르면 찾는 말 칸에 그대로 들어가므로 고쳐 쓸 수 있습니다. */
+const MAJORS = [
+  ['경영', '경영'], ['경제', '경제'], ['정치외교', '정치 외교'], ['행정', '행정'], ['법', '법학 법과'],
+  ['미디어·언론', '미디어 언론 커뮤니케이션 신문방송'], ['심리', '심리'], ['사회', '사회학'], ['국제', '국제'], ['통상·무역', '통상 무역'],
+  ['영어영문', '영어 영문 영미'], ['중어중문', '중어 중문 중국'], ['일어일문', '일어 일문 일본'], ['불어불문', '불어 불문 프랑스'], ['독어독문', '독어 독문 독일'],
+  ['국어국문', '국어국문 국문'], ['사학', '사학 역사'], ['철학', '철학'], ['교육', '교육'], ['자유전공', '자유전공 자율전공 자율융합'],
+];
+const majNorm = t => String(t || '').replace(/\s+/g, '').toLowerCase();
+const majToks = q => String(q || '').split(/[\s,·\/]+/).map(majNorm).filter(Boolean);
+function majApps(q) {
+  const toks = majToks(q);
+  if (!toks.length) return [];
+  return S.history.apps.filter(a => { const d = majNorm(a.dept); return d && toks.some(t => d.includes(t)); });
+}
+let majCnt = null;   /* 단추에 붙는 합격 건수 — 자료가 바뀌면 다시 셉니다 */
+function majCounts() {
+  if (majCnt?.h !== S.history) majCnt = { h: S.history, n: MAJORS.map(([, kw]) => majApps(kw).filter(a => a.res === '합격' || a.res === '추합').length) };
+  return majCnt.n;
+}
+
 function openPool(v) {
   if (v === 'dept') S.hak = S.hak || curHak() || HAKS[0];
   if (v === 'band') S.band = S.band || defaultBand();
+  if (v === 'major') S.mq = '';   /* 메뉴로 들어오면 늘 전공 고르기부터 */
   Object.assign(PF, { res: 'pass', tr: 'all', yr: 'all', hk: 'all', more: false });
   S.uFrom = null;
   setView(v); window.scrollTo({ top: 0 }); navPush();
@@ -562,6 +586,28 @@ function paintPool() {
   const me = S.cur && gv != null ? { g: gv, nm: S.cur.nm, est: S.cur.a5 != null && Math.abs(gv - S.cur.g[3]) < 0.005 } : (gv != null ? { g: gv, nm: '입력한 내신' } : null);
   const yrs = `${S.history.meta.years.join('·')}학년도 수시`;
   $('gnav').innerHTML = '';
+  if (S.view === 'major') {
+    const q = (S.mq || '').trim(), pre = MAJORS.find(([, kw]) => kw === q);
+    $('gtitle').textContent = `전공별 합격생${q ? ` — ${pre ? pre[0] : q}` : ''}`;
+    $('gnote').textContent = yrs;
+    /* 입력칸은 한 번만 만듭니다 — 다시 그리면 치던 글자의 커서가 날아갑니다 */
+    if (!$('mq')) {
+      $('gctl').innerHTML = `<input type="search" id="mq" placeholder="전공(모집단위) 이름 — 예: 경제, 미디어, 영어영문" autocomplete="off">
+        <div class="usug" id="mpre"></div>`;
+    }
+    if (document.activeElement !== $('mq')) $('mq').value = q;
+    const cn = majCounts();
+    $('mpre').innerHTML = MAJORS.map(([lab, kw], i) => `<button class="uchip" data-mq="${esc(kw)}" aria-pressed="${kw === q}">${esc(lab)}<span class="c${cn[i] ? '' : ' z'}">합격 ${cn[i]}</span></button>`).join('');
+    if (!q) {
+      $('gbody').innerHTML = `<div class="empty">가고 싶은 <b>전공 이름</b>을 치거나 위에서 고르세요.<br>
+        <span class="fine">대학마다 이름이 달라(경제학과·경제학부·경제금융학부 …) 이름에 그 말이 든 모집단위를 모두 모읍니다. 띄어 쓰면 여러 말을 한꺼번에 찾습니다.</span></div>`;
+      return;
+    }
+    const all = majApps(q);
+    if (!all.length) { $('gbody').innerHTML = `<div class="empty">「${esc(q)}」가 든 모집단위에 지원한 기록이 없습니다.</div>`; return; }
+    $('gbody').innerHTML = R.majorPage(all, S.pmap, PF, me, { rank: rankOf, univMore: PF.more, showHk: S.history.persons.some(p => p.hk) });
+    return;
+  }
   if (S.view === 'dept') {
     const hasHak = S.history.persons.some(p => p.hk);
     const n = h => S.history.apps.filter(a => S.pmap.get(a.pk)?.hk === h && (a.res === '합격' || a.res === '추합')).length;
@@ -615,7 +661,8 @@ function paintUniv() {
     }
   }
   $('usug').innerHTML = R.univSuggest(q ? sug : univMain(), S.univ);
-  const fromLab = { stu: `${who}으로`, dept: `학과별 합격생(${S.hak || ''})으로`, band: '내신별 합격생으로' }[S.uFrom];
+  const majLab = (MAJORS.find(([, kw]) => kw === S.mq) || [S.mq || ''])[0];
+  const fromLab = { stu: `${who}으로`, dept: `학과별 합격생(${S.hak || ''})으로`, band: '내신별 합격생으로', major: `전공별 합격생(${majLab})으로` }[S.uFrom];
   $('unav').innerHTML = (S.univ ? '<button class="navb" data-nav="list"><span class="ar">←</span>대학 목록</button>' : '')
     + (fromLab ? `<button class="navb" data-nav="${S.uFrom}"><span class="ar">←</span>${esc(fromLab)}</button>` : '');
   if (!S.univ) {
@@ -939,7 +986,7 @@ document.querySelectorAll('#results .tab').forEach(t => t.addEventListener('clic
 bindChips('viewchips', b => {
   const v = b.dataset.view;
   if (v === 'univ') showUnivList();   /* 메뉴로 들어오면 늘 대학 목록부터 */
-  else if (v === 'dept' || v === 'band') openPool(v);
+  else if (isPool(v)) openPool(v);
   else {
     if (S.view !== 'stu') backToStu();
     requestAnimationFrame(() => window.scrollTo({ top: 0 }));   /* 메뉴로 들어오면 어느 화면이든 맨 위부터 */
@@ -947,6 +994,12 @@ bindChips('viewchips', b => {
 });
 /* 학과별·내신별 화면의 조작 */
 $('gctl').addEventListener('click', e => {
+  const m = e.target.closest('[data-mq]');
+  if (m) {
+    S.mq = m.dataset.mq; $('mq').value = S.mq;
+    Object.assign(PF, { res: 'pass', tr: 'all', yr: 'all', more: false }); paintPool(); window.scrollTo({ top: 0 }); navPush();
+    return;
+  }
   const h = e.target.closest('.hak[data-hak]');
   if (h) { if (h.dataset.hak !== S.hak) { S.hak = h.dataset.hak; Object.assign(PF, { tr: 'all', yr: 'all', more: false }); paintPool(); navPush(); } return; }
   const bd = e.target.closest('.chip[data-band]');
@@ -957,6 +1010,11 @@ $('gctl').addEventListener('click', e => {
 });
 let bandTimer = null;
 $('gctl').addEventListener('input', e => {
+  if (e.target.id === 'mq') {
+    clearTimeout(bandTimer);
+    bandTimer = setTimeout(() => { S.mq = $('mq').value.trim(); Object.assign(PF, { res: 'pass', tr: 'all', yr: 'all', more: false }); paintPool(); navReplace(); }, 300);
+    return;
+  }
   if (e.target.id !== 'blo' && e.target.id !== 'bhi') return;
   clearTimeout(bandTimer);
   bandTimer = setTimeout(() => {
@@ -982,6 +1040,7 @@ window.addEventListener('popstate', e => {
   S.uFrom = st.from || null;
   if (st.hak) S.hak = st.hak;
   if (st.band) S.band = st.band;
+  if (st.view === 'major') S.mq = st.mq || '';
   if (st.view === 'univ') {
     S.univ = st.univ || null; S.camp = st.camp || null; $('uq').value = st.univ || '';
     setView('univ'); window.scrollTo({ top: 0 });

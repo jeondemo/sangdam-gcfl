@@ -389,6 +389,7 @@ td.ok b{color:var(--pass)} td.warn{color:var(--minx)} td.nw{white-space:nowrap}
 /* ══ 상담 유형 · 정시 모드 ══ */
 /* 보기 메뉴는 폭과 상관없이 늘 위 2 · 아래 2 */
 #viewchips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#viewchips .chip[data-view=stu]{grid-column:1 / -1}   /* 학생 상담은 한 줄 통째로, 합격생 찾기 넷은 위 2 · 아래 2 */
 .chips.mode .chip{flex:1 1 auto;text-align:center;padding:7px 8px;min-width:0}
 .chips.mode .chip small{display:block;font-size:9.5px;font-weight:500;opacity:.75;margin-top:1px}
 .sg4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
@@ -1155,3 +1156,34 @@ table.jgtbl td.b{font-weight:700}
 .plist tr.fail .ulink{color:#98a3b3}
 .ulist .hk{font-size:10px;font-weight:800;color:#1e2e68;background:#eaf1fe;border:1px solid #cddcfb;border-radius:5px;padding:0 5px;margin-left:3px}
 .utbl .ulink{font-weight:700}
+
+/* ══ 전공별 합격생 ══ */
+#mq{width:100%;font:inherit;font-size:16px;font-weight:600;padding:11px 14px;border:1.5px solid #cfd8e6;border-radius:10px;
+  background:#fbfcfe;color:var(--ink);outline:none}
+#mq:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+.mtbl td{vertical-align:middle}
+.mtbl .mn{font-size:12px;color:#5b6a80;max-width:230px}
+.mtbl tr.zero td{color:#a3adbd}
+.mtbl tr.zero .ulink{color:#8a96a8}
+.mtbl tr.can td{background:#f2fbf5}
+.mtbl tr.can td:first-child{box-shadow:inset 3px 0 0 #16a34a}
+.mtbl .ms{width:230px;padding-left:14px;padding-right:14px}
+.mstrip{position:relative;width:200px;height:20px;border-radius:10px;background:linear-gradient(#e7ebf3,#e7ebf3) center/100% 2px no-repeat}
+.mstrip i{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;box-sizing:border-box}
+.mstrip i.ok{background:#dc2626;opacity:.82}
+.mstrip i.no{border:1.5px solid #9aa6b8;background:#fff;opacity:.75}
+.mstrip u{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#2563eb;border-radius:1px}
+.maxis{display:flex;justify-content:space-between;align-items:baseline;width:200px;font-weight:600;color:#9aa6b8;font-size:10.5px}
+.maxis b{color:inherit;font-size:12px;color:#5b6a80}
+.mleg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#4b5a70;font-weight:700}
+.mleg i{width:9px;height:9px;border-radius:50%;display:inline-block;box-sizing:border-box;margin-left:6px}
+.mleg i.ok{background:#dc2626}.mleg i.no{border:1.5px solid #9aa6b8;background:#fff}
+.mleg u{display:inline-block;width:2px;height:13px;background:#2563eb;margin-left:8px}
+.mleg .fine{font-weight:500}
+.mj{white-space:nowrap;font-size:12px}
+.mjok{display:inline-block;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:700}
+.mjno{color:#8a96a8}
+.usec h3 .mres{margin-left:auto}
+.usec h3 .mres .chip{background:#f3f5fa;border:1px solid #dfe4ee;color:#4b5a70;padding:3px 10px;font-size:12px;font-weight:700}
+.usec h3 .mres .chip[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68;color:#fff}
+@media (max-width:900px){ .mtbl .mn{display:none} .mstrip,.maxis{width:140px} .mtbl .ms{width:160px} }
