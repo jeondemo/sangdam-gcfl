@@ -783,9 +783,7 @@ const caseVisible = i => (CF.mode === 'all' || (CF.mode === 'ok') === (S.cases[i
 $('p-stu').addEventListener('click', e => {
   const fc = e.target.closest('.fc[data-f]');
   if (fc) {
-    CF.mode = fc.dataset.f;
-    if (CF.mode === 'ok') CF.onlyOk = true;
-    if (CF.mode !== 'ok') CF.onlyOk = false;
+    CF.mode = fc.dataset.f;   /* 「카드 안에서 합격 줄만 보기」는 따로 체크할 때만 켜집니다 */
     applyCaseFilter(); return;
   }
   if (e.target.id === 'onlyok') { CF.onlyOk = e.target.checked; applyCaseFilter(); return; }
