@@ -1,7 +1,7 @@
 /* 화면 렌더링 — HTML 문자열을 만들어 돌려줍니다. */
 
 import { isPass } from './match.js';
-import { busan5to9, BUSAN_SRC } from './parse.js';
+import { busan5to9, BUSAN_SRC, BUSAN_ASOF } from './parse.js';
 
 /* 학급 코드는 306처럼 「학년+반」 세 자리입니다. 화면에는 「3학년 6반」으로 풉니다. */
 export const clsLabel = c => (c >= 100 ? `${Math.floor(c / 100)}학년 ${c % 100}반` : `${c}반`);
@@ -58,9 +58,9 @@ export function studentCard(st, total, meta) {
   const bs = five ? busan5to9(st.a5) : null;
   const scale = five
     ? `<div class="fine">5등급 기준 · 괄호는 9등급 환산 <span class="wn" title="이 학교 졸업생의 석차백분율 → 9등급 평균 곡선으로 환산한 값입니다">(석차 기준)</span></div>
-      <div class="cv9"><span class="k">9등급 환산</span>
+      <div class="cv9"><span class="k">9등급<br><span class="sp">환산</span></span>
         <span class="v"><i>외고 졸업생 기준</i><b>${f2(st.g[3])}</b></span>
-        <span class="v bs" title="${esc(BUSAN_SRC)}"><i>일반고 기준(부산)</i><b>${f2(bs)}</b></span></div>`
+        <span class="v bs" title="${esc(BUSAN_SRC)}"><i>일반고 기준(부산)</i><i class="asof">${esc(BUSAN_ASOF)}</i><b>${f2(bs)}</b></span></div>`
     : '';
   const d = (vals[2] != null && vals[0] != null) ? vals[2] - vals[0] : (vals[1] != null && vals[0] != null ? vals[1] - vals[0] : null);
   const tol = five ? 0.1 : 0.15;

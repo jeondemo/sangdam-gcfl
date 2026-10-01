@@ -1112,7 +1112,10 @@ table.jgtbl td.b{font-weight:700}
 
 /* 9등급 환산 두 가지 — 외고 졸업생 기준(매칭) · 일반고 기준(부산, 참고) */
 .cv9{display:flex;align-items:stretch;gap:6px;margin-top:8px}
-.cv9 .k{flex:none;align-self:center;font-size:10.5px;font-weight:800;color:#9fb0d8;width:58px;line-height:1.25}
+.cv9 .k{flex:none;align-self:center;font-size:11px;font-weight:800;color:#9fb0d8;width:44px;line-height:1.35;text-align:center}
+.cv9 .k .sp{letter-spacing:.55em;margin-right:-.55em}   /* 「환  산」 — 위 「9등급」과 폭을 맞춤 */
+.cv9 .v{justify-content:space-between}   /* 숫자 높이를 두 칸이 같게 — 글씨는 위, 숫자는 아래 */
+.cv9 .v i.asof{font-size:9px;color:#c9b48a;font-weight:700;margin-top:-1px}
 .cv9 .v{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid rgba(160,180,235,.25);
   border-radius:8px;padding:5px 4px;background:rgba(30,48,120,.35)}
 .cv9 .v i{font-style:normal;font-size:9.5px;color:#9fb0d8;font-weight:600}
