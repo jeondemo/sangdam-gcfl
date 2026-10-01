@@ -3,9 +3,9 @@ const { GAS_URL, SCHOOL, ROSTER_STEPS } = CFG;
 import * as store from './store.js';
 import * as api from './api.js';
 import { encode, decode } from './codec.js';
-import { parseApps, mergeApps, parseRoster, ROSTER_PV, univFix } from './parse.js';
+import { parseApps, mergeApps, parseRoster, ROSTER_PV, univFix, busan5to9, BUSAN_SRC, HAKS, hakOf } from './parse.js';
 import { fixHcell } from './xlfix.js';
-import { UNIV_TIERS, UNIV_KINDS, MAIN_COUNT } from './rank.js';
+import { UNIV_TIERS, UNIV_KINDS, MAIN_COUNT, HAK_BY_CLASS } from './rank.js';
 import { buildIndex, findSimilar, summarize, aggregateUniv, aggregateTrack } from './match.js';
 import * as R from './render.js';
 
@@ -21,6 +21,7 @@ const S = {
   univ: null,     // 대학별 화면에서 고른 대학
 };
 const UF = { res: 'pass', tr: 'all', yr: 'all' };   // 대학별 화면 거르기
+const PF = { res: 'pass', tr: 'all', yr: 'all', hk: 'all', more: false };   // 학과별·내신별 화면 거르기
 
 /* ── 학교 표기 ─────────────────────────────────────── */
 
@@ -260,6 +261,7 @@ function clearStudent() {
   from5 = false;
   $('gpa5c').classList.remove('est');
   $('gpa5c').classList.toggle('hidden', !fit59());   /* 5등급 명단이 있으면 직접 입력에서도 5등급 칸을 둡니다 */
+  paintSubs();
   $('stucard').classList.add('hidden');
 }
 
@@ -309,9 +311,7 @@ function onStudentChange() {
     $('gpa5').value = S.cur.a5.toFixed(2);
     $('gpa5c').classList.remove('hidden');
     $('gpa5c').title = '학교 파일의 5등급 평균입니다. 9등급 칸은 석차백분율을 졸업생 곡선으로 환산한 값입니다.';
-    $('gpasubs').innerHTML = `<div class="cbt">석차 → 9등급</div>
-      <div class="cbv"><div><span>상위</span><b>${S.cur.pr != null ? S.cur.pr.toFixed(1) + '%' : '—'}</b></div>
-      <div><span>환산</span><b>${S.cur.g[3].toFixed(2)}</b></div></div>`;
+    paintSubs();
   } else if (S.cur.g[4] != null) {
     $('gpasubs').innerHTML = `<div class="cbt">국수영사과한</div><div class="cbv"><div><span>9등급</span><b>${S.cur.g[4].toFixed(2)}</b></div></div>`;
   }
@@ -328,6 +328,20 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
    학생을 고르면 그 학생 학년, 학급만 골랐으면 그 학년, 아니면 가장 높은 5등급 학년의 식을 씁니다. */
 let from5 = false;              // 9등급 칸이 5등급에서 환산된 값인지
 const fitCache = new WeakMap();
+/* 「9등급 환산」 카드 — 외고 졸업생 기준(매칭에 씀)과 일반고 기준(부산 표, 참고)을 나란히.
+   5등급 칸이 있을 때만 그립니다. 5등급이 추정치면 일반고 값도 그 추정치로 계산합니다. */
+function paintSubs() {
+  const box = $('gpasubs');
+  if ($('gpa5c').classList.contains('hidden')) {
+    box.innerHTML = S.cur?.g?.[4] != null ? `<div class="cbt">국수영사과한</div><div class="cbv"><div><span>9등급</span><b>${S.cur.g[4].toFixed(2)}</b></div></div>` : '';
+    return;
+  }
+  const v9 = numOf('gpa'), v5 = numOf('gpa5'), bs = busan5to9(v5);
+  box.innerHTML = `<div class="cbt">9등급 환산</div>
+    <div class="cbv"><div><span>외고 기준</span><b>${v9 != null ? v9.toFixed(2) : '—'}</b></div>
+    <div class="bs" title="${esc(BUSAN_SRC)}"><span>일반고(부산)</span><b>${bs != null ? bs.toFixed(2) : '—'}</b></div></div>`;
+}
+
 function fit59() {
   const sets = S.roster?.sets; if (!sets) return null;
   const five = Object.keys(sets).map(Number).filter(g => sets[g]?.meta?.has5);
@@ -350,7 +364,7 @@ const selGy = -1;   /* 계열 거르기는 쓰지 않습니다(외고는 인문�
 
 let emptyDefault = null;
 function showEmpty(msg) {
-  if (S.view === 'univ') return;   /* 대학별 화면에서는 안내문 자리가 따로 없습니다 */
+  if (S.view !== 'stu') return;   /* 대학별·학과별·내신별 화면에서는 안내문 자리가 따로 없습니다 */
   $('results').classList.add('hidden');
   $('placeholder').classList.remove('hidden');
   if (emptyDefault == null) emptyDefault = $('placeholder').innerHTML;
@@ -360,6 +374,7 @@ function showEmpty(msg) {
 function run() {
   if (!S.index) return;
   if (S.view === 'univ') return paintUniv();
+  if (S.view === 'dept' || S.view === 'band') return paintPool();
   caseClose();
   const gpa = numOf('gpa');
   if (gpa == null) return showEmpty();
@@ -373,7 +388,8 @@ function run() {
   $('rtitle').textContent = S.cur ? `${S.cur.nm} · 유사 사례` : '유사 사례';
   $('rnote').textContent = `내신 ${lo.toFixed(2)}~${hi.toFixed(2)} 구간 졸업생 ${sel.length}명 기준`;
   $('stats').innerHTML = R.statBar(sel, sum);
-  $('headline').innerHTML = R.headline(sum, sel, gpa, S.cur?.nm, from5 || (S.cur?.a5 != null && Math.abs(gpa - S.cur.g[3]) < 0.005));
+  const est = from5 || (S.cur?.a5 != null && Math.abs(gpa - S.cur.g[3]) < 0.005);
+  $('headline').innerHTML = R.headline(sum, sel, gpa, S.cur?.nm, est, est ? busan5to9(numOf('gpa5')) : null);
   S.cases = R.buildCases(sel, rows);
   $('p-stu').innerHTML = R.similarStudents(S.cases);
   applyCaseFilter();
@@ -458,24 +474,27 @@ function univFind(q) {
    학생 상담 ↔ 대학 목록 ↔ 한 대학 화면을 오갈 때마다 브라우저 기록에 남깁니다.
    그래서 브라우저의 뒤로 가기(마우스 옆 버튼·Alt+←)로도 돌아가고, 화면 위 「← 대학 목록」「← 학생 상담으로」로도 돌아갑니다.
    학생 상담으로 돌아오면 보던 자리(스크롤·탭)가 그대로입니다. */
-const navState = () => ({ view: S.view, univ: S.univ, camp: S.camp || null, from: S.uFrom || null });
+const navState = () => ({ view: S.view, univ: S.univ, camp: S.camp || null, from: S.uFrom || null, hak: S.hak || null, band: S.band || null });
 const navPush = () => { try { history.pushState(navState(), ''); } catch { /* 기록을 못 남겨도 화면은 그대로 */ } };
 const navReplace = () => { try { history.replaceState(navState(), ''); } catch { /* 위와 같음 */ } };
 let stuScroll = 0;
 
 function setView(v) {
-  if (S.view === 'stu' && v === 'univ' && !$('results').classList.contains('hidden')) stuScroll = window.scrollY;
-  const back = S.view === 'univ' && v === 'stu';
+  if (S.view === 'stu' && v !== 'stu' && !$('results').classList.contains('hidden')) stuScroll = window.scrollY;
+  const back = S.view !== 'stu' && v === 'stu';
   S.view = v;
   document.querySelectorAll('#viewchips .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.view === v)));
-  const isU = v === 'univ';
-  $('sb-cond').classList.toggle('hidden', isU);
-  $('sb-nums').classList.toggle('hidden', isU);
-  $('uview').classList.toggle('hidden', !isU);
+  const side = v === 'stu', pool = v === 'dept' || v === 'band';
+  $('sb-cond').classList.toggle('hidden', !side);
+  $('sb-nums').classList.toggle('hidden', !side);
+  $('uview').classList.toggle('hidden', v !== 'univ');
+  $('gview').classList.toggle('hidden', !pool);
   caseClose();
-  if (isU) { $('results').classList.add('hidden'); $('placeholder').classList.add('hidden'); paintUniv(); }
+  if (!side) { $('results').classList.add('hidden'); $('placeholder').classList.add('hidden'); }
+  if (v === 'univ') paintUniv();
+  else if (pool) paintPool();
   else {
-    $('uview').classList.add('hidden'); run();
+    run();
     if (back) requestAnimationFrame(() => window.scrollTo({ top: stuScroll }));
   }
 }
@@ -510,6 +529,73 @@ function backToStu() {
   navPush();
 }
 
+/* 대학 화면에서 학과별·내신별로 되돌아가기 — 고르던 학과·구간이 그대로 남아 있습니다 */
+function backTo(v) {
+  if (v === 'stu') return backToStu();
+  S.uFrom = null;
+  setView(v); window.scrollTo({ top: 0 }); navPush();
+}
+
+/* ── 학과별 · 내신별 합격생 ───────────────────────────────── */
+const curHak = () => S.cur ? (hakOf(S.cur.dept) || HAK_BY_CLASS[S.cur.c % 100] || null) : null;
+const round05 = v => Math.round(v * 20) / 20;
+function defaultBand() {
+  const v = numOf('gpa');
+  return v != null ? [Math.max(1, round05(v - 0.25)), Math.min(9, round05(v + 0.25))] : [2.0, 2.5];
+}
+const BAND_PRESET = [[1.0, 1.5], [1.5, 2.0], [2.0, 2.5], [2.5, 3.0], [3.0, 3.5], [3.5, 4.0], [4.0, 4.5], [4.5, 5.5], [5.5, 9.0]];
+
+function openPool(v) {
+  if (v === 'dept') S.hak = S.hak || curHak() || HAKS[0];
+  if (v === 'band') S.band = S.band || defaultBand();
+  Object.assign(PF, { res: 'pass', tr: 'all', yr: 'all', hk: 'all', more: false });
+  S.uFrom = null;
+  setView(v); window.scrollTo({ top: 0 }); navPush();
+}
+
+function paintPool() {
+  if (!S.pmap) S.pmap = new Map(S.history.persons.map(p => [p.pk, p]));
+  const gv = numOf('gpa');
+  const me = S.cur && gv != null ? { g: gv, nm: S.cur.nm, est: S.cur.a5 != null && Math.abs(gv - S.cur.g[3]) < 0.005 } : (gv != null ? { g: gv, nm: '입력한 내신' } : null);
+  const yrs = `${S.history.meta.years.join('·')}학년도 수시`;
+  $('gnav').innerHTML = '';
+  if (S.view === 'dept') {
+    const hasHak = S.history.persons.some(p => p.hk);
+    const n = h => S.history.apps.filter(a => S.pmap.get(a.pk)?.hk === h && (a.res === '합격' || a.res === '추합')).length;
+    const mine = curHak();
+    $('gtitle').textContent = `학과별 합격생 — ${S.hak}`;
+    $('gnote').textContent = yrs;
+    $('gctl').innerHTML = `<div class="hakbar">${HAKS.map(h => `<button class="hak" data-hak="${h}" aria-pressed="${h === S.hak}"><b>${h}</b><span>합격 <em>${hasHak ? n(h) : '—'}</em>${mine === h ? ' · 이 학생' : ''}</span></button>`).join('')}</div>`;
+    if (!hasHak) {
+      $('gbody').innerHTML = '<div class="empty">지금 서버 자료에는 학과 정보가 없습니다.<br><span class="fine">관리자 화면에서 4개년 수시합격현황 파일을 한 번 다시 올리면 학과별로 볼 수 있습니다.</span></div>';
+      return;
+    }
+    const all = S.history.apps.filter(a => S.pmap.get(a.pk)?.hk === S.hak);
+    $('gbody').innerHTML = R.poolPage(all, S.pmap, PF, me, { note: `<b>${S.hak}</b> 졸업생들은`, rank: rankOf, univMore: PF.more });
+  } else {
+    const [lo, hi] = S.band;
+    $('gtitle').textContent = `내신별 합격생 — ${lo.toFixed(2)} ~ ${hi.toFixed(2)}`;
+    $('gnote').textContent = `9등급 전학년 · ${yrs}`;
+    const pre = BAND_PRESET.map(([a, b]) => `<button class="chip" data-band="${a}-${b}" aria-pressed="${a === lo && b === hi}">${a.toFixed(1)}~${b.toFixed(1)}</button>`).join('');
+    const near = gv != null ? `<button class="chip near" data-band="near">${esc(S.cur?.nm || '입력한 내신')} ${gv.toFixed(2)} ±0.25</button>` : '';
+    /* 입력칸은 한 번만 만들고 값만 바꿉니다 — 다시 그리면 치던 칸의 커서가 날아갑니다 */
+    if (!$('blo')) {
+      $('gctl').innerHTML = `<div class="bandbar">
+        <label>내신 <input type="number" id="blo" step="0.05" min="1" max="9"></label>
+        <span class="tl">~</span>
+        <label><input type="number" id="bhi" step="0.05" min="1" max="9"></label>
+        <span class="fine">9등급 전학년 · 위아래 단추로 0.05씩</span></div>
+        <div class="chips bandpre" id="bpre"></div>`;
+    }
+    if (document.activeElement !== $('blo')) $('blo').value = lo.toFixed(2);
+    if (document.activeElement !== $('bhi')) $('bhi').value = hi.toFixed(2);
+    $('bpre').innerHTML = near + pre;
+    const all = S.history.apps.filter(a => { const g = S.pmap.get(a.pk)?.g?.[3]; return g != null && g >= lo - 1e-9 && g <= hi + 1e-9; });
+    $('gbody').innerHTML = R.poolPage(all, S.pmap, PF, me,
+      { note: `내신 <b>${lo.toFixed(2)} ~ ${hi.toFixed(2)}</b> 졸업생들은`, rank: rankOf, haks: S.history.persons.some(p => p.hk) ? HAKS : null, univMore: PF.more });
+  }
+}
+
 function paintUniv() {
   const q = $('uq').value.trim();
   const who = S.cur?.nm ? `${S.cur.nm} 상담` : '학생 상담';
@@ -526,8 +612,9 @@ function paintUniv() {
     }
   }
   $('usug').innerHTML = R.univSuggest(q ? sug : univMain(), S.univ);
+  const fromLab = { stu: `${who}으로`, dept: `학과별 합격생(${S.hak || ''})으로`, band: '내신별 합격생으로' }[S.uFrom];
   $('unav').innerHTML = (S.univ ? '<button class="navb" data-nav="list"><span class="ar">←</span>대학 목록</button>' : '')
-    + (S.uFrom === 'stu' ? `<button class="navb" data-nav="stu"><span class="ar">←</span>${esc(who)}으로</button>` : '');
+    + (fromLab ? `<button class="navb" data-nav="${S.uFrom}"><span class="ar">←</span>${esc(fromLab)}</button>` : '');
   if (!S.univ) {
     $('utitle').textContent = '대학별 합격생';
     $('unote').textContent = q ? `「${q}」 — 아래에서 대학을 고르세요` : `주요 대학 ${univMain().length}곳 · 서연고·서성한·중경외시 순 · 다른 대학은 이름으로 찾으세요`;
@@ -823,7 +910,7 @@ $('gpa').addEventListener('input', () => {
     $('gpa5').value = isNaN(v) ? '' : (real ? S.cur.a5 : clamp((v - f.a) / f.b, 1, 5)).toFixed(2);
     $('gpa5c').classList.toggle('est', !real && !isNaN(v));
   }
-  gpaNote();
+  gpaNote(); paintSubs();
 });
 /* 5등급을 고치면 9등급 칸을 환산해서 채우고 다시 찾습니다 */
 $('gpa5').addEventListener('input', () => {
@@ -833,7 +920,7 @@ $('gpa5').addEventListener('input', () => {
   $('gpa').value = isNaN(v) ? '' : (real ? S.cur.g[3] : clamp(f.a + f.b * v, 1, 9)).toFixed(2);
   from5 = !isNaN(v);
   $('gpa5c').classList.remove('est');
-  gpaNote();
+  gpaNote(); paintSubs();
   clearTimeout(timer); timer = setTimeout(run, 350);
 });
 
@@ -847,21 +934,52 @@ document.querySelectorAll('#results .tab').forEach(t => t.addEventListener('clic
 }));
 
 bindChips('viewchips', b => {
-  if (b.dataset.view === 'univ') showUnivList();   /* 메뉴로 들어오면 늘 대학 목록부터 */
+  const v = b.dataset.view;
+  if (v === 'univ') showUnivList();   /* 메뉴로 들어오면 늘 대학 목록부터 */
+  else if (v === 'dept' || v === 'band') openPool(v);
   else if (S.view !== 'stu') backToStu();
+});
+/* 학과별·내신별 화면의 조작 */
+$('gctl').addEventListener('click', e => {
+  const h = e.target.closest('.hak[data-hak]');
+  if (h) { if (h.dataset.hak !== S.hak) { S.hak = h.dataset.hak; Object.assign(PF, { tr: 'all', yr: 'all', more: false }); paintPool(); navPush(); } return; }
+  const bd = e.target.closest('.chip[data-band]');
+  if (bd) {
+    S.band = bd.dataset.band === 'near' ? defaultBand() : bd.dataset.band.split('-').map(Number);
+    Object.assign(PF, { tr: 'all', yr: 'all', more: false }); paintPool(); navPush();
+  }
+});
+let bandTimer = null;
+$('gctl').addEventListener('input', e => {
+  if (e.target.id !== 'blo' && e.target.id !== 'bhi') return;
+  clearTimeout(bandTimer);
+  bandTimer = setTimeout(() => {
+    let lo = parseFloat($('blo').value), hi = parseFloat($('bhi').value);
+    if (isNaN(lo) || isNaN(hi) || lo < 1 || hi < 1) return;
+    if (lo > hi) [lo, hi] = [hi, lo];
+    S.band = [clamp(lo, 1, 9), clamp(hi, 1, 9)]; paintPool(); navReplace();
+  }, 400);
+});
+$('gbody').addEventListener('click', e => {
+  const u = e.target.closest('.ulink[data-univ]'); if (u) return openUniv(u.dataset.univ, S.view);
+  if (e.target.closest('[data-umore]')) { PF.more = !PF.more; return paintPool(); }
+  const c = e.target.closest('.chip[data-pf]'); if (!c) return;
+  PF[c.dataset.pf] = c.dataset.v; paintPool();
 });
 $('unav').addEventListener('click', e => {
   const b = e.target.closest('.navb[data-nav]'); if (!b) return;
-  if (b.dataset.nav === 'stu') backToStu(); else showUnivList(true);
+  if (b.dataset.nav === 'list') showUnivList(true); else backTo(b.dataset.nav);
 });
 window.addEventListener('popstate', e => {
   const st = e.state;
   if (!st || $('app').classList.contains('hidden')) return;
   S.uFrom = st.from || null;
+  if (st.hak) S.hak = st.hak;
+  if (st.band) S.band = st.band;
   if (st.view === 'univ') {
     S.univ = st.univ || null; S.camp = st.camp || null; $('uq').value = st.univ || '';
     setView('univ'); window.scrollTo({ top: 0 });
-  } else setView('stu');
+  } else setView(st.view || 'stu');
 });
 /* 치는 도중 대학이 저절로 열리면(「서울대」) 목록 칸을 지우지 않고 한 칸 새로 남깁니다 — 뒤로 가기가 목록으로 오도록 */
 $('uq').addEventListener('input', () => {

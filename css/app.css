@@ -1103,3 +1103,46 @@ table.jgtbl td.b{font-weight:700}
 .sb-motto span{display:block;font-size:11px;font-weight:400;letter-spacing:2.4px;color:#c6d0ea}
 .sb-motto b{display:block;margin-top:3px;font-size:12.5px;font-weight:800;letter-spacing:2.6px;color:var(--gold)}
 
+
+/* 9등급 환산 두 가지 — 외고 졸업생 기준(매칭) · 일반고 기준(부산, 참고) */
+.cv9{display:flex;align-items:stretch;gap:6px;margin-top:8px}
+.cv9 .k{flex:none;align-self:center;font-size:10.5px;font-weight:800;color:#9fb0d8;width:58px;line-height:1.25}
+.cv9 .v{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid rgba(160,180,235,.25);
+  border-radius:8px;padding:5px 4px;background:rgba(30,48,120,.35)}
+.cv9 .v i{font-style:normal;font-size:9.5px;color:#9fb0d8;font-weight:600}
+.cv9 .v b{font-size:15px;font-weight:800;color:#f3f6fe}
+.cv9 .v.bs{background:rgba(217,190,134,.10);border-color:rgba(217,190,134,.35);cursor:help}
+.cv9 .v.bs b{color:#e9d3a8}
+.cbv>div.bs{background:rgba(217,190,134,.10);cursor:help}
+.cbv>div.bs b{color:#e9d3a8}
+
+/* ── 학과별 · 내신별 합격생 ─────────────────────────── */
+.hakbar{display:flex;gap:8px;flex-wrap:wrap}
+.hak{font:inherit;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;
+  background:#f3f6fb;border:1.5px solid #dde4ef;border-radius:10px;padding:8px 16px;min-width:118px;text-align:left}
+.hak b{font-size:14px;font-weight:800;color:#1c2733}
+.hak span{font-size:11px;color:var(--faint);font-weight:600}
+.hak span em{font-style:normal;color:var(--pass);font-weight:800}
+.hak:hover{border-color:#9fb3d6}
+.hak[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68}
+.hak[aria-pressed=true] b{color:#fff}
+.hak[aria-pressed=true] span{color:#c9d3ea}
+.hak[aria-pressed=true] span em{color:#ffb4b4}
+.bandbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bandbar label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#1e2e68}
+.bandbar input{width:96px;font:inherit;font-size:16px;font-weight:700;padding:8px 10px;border:1.5px solid #cfd8e6;border-radius:9px;
+  background:#fbfcfe;color:var(--ink);text-align:center}
+.bandbar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.bandbar .tl{font-weight:800;color:#8b99a9}
+.bandbar .fine{margin-left:6px}
+.bandpre{margin-top:10px}
+.bandpre .chip{background:#f3f5fa;border-color:#dfe4ee;color:#4b5a70;padding:5px 11px;font-size:12px}
+.bandpre .chip[aria-pressed=true]{background:#1e2e68;border-color:#1e2e68;color:#fff}
+.bandpre .chip.near{background:#eaf1fe;border-color:#bcd0f7;color:#1e3a8a}
+.more2{font:inherit;font-size:12.5px;font-weight:700;color:#1e2e68;background:#fff;border:1px solid #cdd6e6;border-radius:8px;
+  padding:6px 14px;margin-top:8px;cursor:pointer}
+.plist .ulink{font-weight:700;color:#1c2733;display:inline-flex;align-items:center;gap:5px}
+.plist .ulink .cp{margin:0}
+.plist tr.fail .ulink{color:#98a3b3}
+.ulist .hk{font-size:10px;font-weight:800;color:#1e2e68;background:#eaf1fe;border:1px solid #cddcfb;border-radius:5px;padding:0 5px;margin-left:3px}
+.utbl .ulink{font-weight:700}

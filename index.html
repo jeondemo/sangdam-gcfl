@@ -42,6 +42,8 @@
       <div class="chips mode" id="viewchips">
         <button class="chip" data-view="stu" aria-pressed="true">학생 상담<small>내신이 비슷한 졸업생</small></button>
         <button class="chip" data-view="univ" aria-pressed="false">대학별 합격생<small>대학 이름으로 찾기</small></button>
+        <button class="chip" data-view="dept" aria-pressed="false">학과별 합격생<small>영·일·중·불·독 5개 과</small></button>
+        <button class="chip" data-view="band" aria-pressed="false">내신별 합격생<small>내신 구간으로 찾기</small></button>
       </div>
 
       <div id="sb-stupick">
@@ -112,6 +114,12 @@
         <div class="usug" id="usug"></div>
       </div>
       <div id="ubody"></div>
+    </div>
+    <div id="gview" class="hidden">
+      <div class="shead ushead"><span class="unav" id="gnav"></span><span class="tick"></span><h2 id="gtitle">학과별 합격생</h2>
+        <span class="snote" id="gnote"></span></div>
+      <div class="usearch" id="gctl"></div>
+      <div id="gbody"></div>
     </div>
     <div class="empty" id="placeholder">
       왼쪽에서 <b>학생을 선택</b>하면 성적이 비슷했던 졸업생들의 수시 지원 결과가 여기에 표시됩니다.<br>

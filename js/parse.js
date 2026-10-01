@@ -110,6 +110,20 @@ export function univFix(name) {
   return u;
 }
 
+/* ── 외고 학과 ─────────────────────────────────────────────
+   파일에는 「일본어과·중국어과·프랑스어과」로 적혀 있고, 학교에서는 「일어과·중어과·불어과」로 부릅니다. 짧은 이름으로 모읍니다. */
+export const HAKS = ['영어과', '일어과', '중어과', '불어과', '독일어과'];
+export function hakOf(v) {
+  const t = squash(v);
+  if (!t) return null;
+  if (/독일|독어/.test(t)) return '독일어과';   /* 「독일어과」에 「일어」가 들어 있어 먼저 봅니다 */
+  if (/영어/.test(t)) return '영어과';
+  if (/일본|일어/.test(t)) return '일어과';
+  if (/중국|중어/.test(t)) return '중어과';
+  if (/프랑스|불어/.test(t)) return '불어과';
+  return null;
+}
+
 /* ── 결과 표기 ─────────────────────────────────────────── */
 
 const isPassWord = s => /^합/.test(s || '');
@@ -163,6 +177,7 @@ export function parseApps(workbook, XLSX, filename) {
     const col = {
       univ: find(b => b === '지원대학'), type: find(b => b === '전형구분'), dept: find(b => b === '지원학과명'),
       id: find(b => b === '학번'), grade: find(b => b === '학년'), cls: find(b => b === '반'), no: find(b => b === '번호'),
+      hak: find(b => b === '학과' || b === '계열'),
       first: find(b => b === '1차'), init: find(b => b === '최초'), fin: find(b => b === '최종'),
       min: find(b => /최저/.test(b) && !/^1차$/.test(b)),
       g1: find((b, m, t) => /내신/.test(t) && /전교과/.test(m) && b === '1년'),
@@ -188,7 +203,7 @@ export function parseApps(workbook, XLSX, filename) {
       const id = clean(at(row, col.id));
       const key = id ? `id:${id}` : `g:${g.map(v => (v == null ? '' : v.toFixed(2))).join('|')}`;
       if (key !== prevKey) {
-        p = { pk: `${year}/${isGrad ? 'G' : 'S'}/${seq++}`, y: year, g, gj: null, csat: null };
+        p = { pk: `${year}/${isGrad ? 'G' : 'S'}/${seq++}`, y: year, g, gj: null, csat: null, hk: hakOf(at(row, col.hak)) };
         persons.push(p);
         prevKey = key;
       }
@@ -308,7 +323,7 @@ export function parseRoster(workbook, XLSX) {
     const grade = num(row[c.grade]), cls = num(row[c.cls]), no = num(row[c.no]);
     if (!nm || cls == null || no == null) continue;
     out.push({
-      nm, no, c: (grade || 0) * 100 + cls, gr: grade, dept: clean(row[c.dept]),
+      nm, no, c: (grade || 0) * 100 + cls, gr: grade, dept: hakOf(row[c.dept]) || clean(row[c.dept]),
       r: num(row[c.rank]), pr: num(row[c.pct]),
       raw: [num(row[c.y1]), num(row[c.y2]), num(row[c.y3]), num(row[c.all])],
     });
@@ -332,4 +347,28 @@ export function parseRoster(workbook, XLSX) {
     students: out,
     meta: { n: out.length, scale, has5: scale === 5, grade: grades.length === 1 ? grades[0] : null, grades, pv: ROSTER_PV, loadedAt: Date.now() },
   };
+}
+
+/* ── 일반고 기준 환산(부산) — 참고용 ─────────────────────────────
+   부산광역시교육청학력개발원 진로진학지원센터(2026.9) 「관내 5등급제 고1~고2-1 누적 등급평균 분석 자료」.
+   부산 98개 일반고 15,978명의 5등급 평균(1-1~2-1 누적)을 누적 비율로 24학년도 고3 9등급 평균(94개교 15,670명)에 맞춘 표입니다.
+   외고 졸업생과 견주는 데는 위 PCT_TO_9(외고 기준)를 쓰고, 이 표는 대학 입결(일반고가 섞인 9등급)과 견줄 때 참고로 보여 줍니다.
+   [5등급 평균, 누적 비율 %, 9등급 평균] */
+export const BUSAN_5TO9 = [
+  [1.00, 0.68, 1.28], [1.04, 1.01, 1.38], [1.08, 1.40, 1.47], [1.16, 2.23, 1.68], [1.24, 3.16, 1.87], [1.33, 4.29, 2.07],
+  [1.42, 5.44, 2.25], [1.50, 6.49, 2.39], [1.66, 8.89, 2.66], [1.83, 12.41, 2.98], [2.00, 16.58, 3.30], [2.16, 20.64, 3.58],
+  [2.33, 25.45, 3.87], [2.50, 31.00, 4.18], [2.66, 36.37, 4.45], [2.83, 42.75, 4.72], [3.00, 49.96, 5.03], [3.16, 56.15, 5.30],
+  [3.33, 62.92, 5.58], [3.50, 69.29, 5.87], [3.66, 74.93, 6.12], [3.83, 80.30, 6.40], [4.00, 85.54, 6.71], [4.16, 89.21, 6.99],
+  [4.33, 92.51, 7.28], [4.50, 94.58, 7.54], [4.66, 96.16, 7.80], [4.83, 97.48, 8.12], [5.00, 100, 9.00],
+];
+export const BUSAN_SRC = '부산광역시교육청 진로진학지원센터(2026.9) 부산 일반고 98개교 15,978명 5등급(1-1~2-1 누적) → 24학년도 고3 9등급 누적비 대응표';
+
+export function busan5to9(v) {
+  if (v == null || !isFinite(v)) return null;
+  const T = BUSAN_5TO9;
+  if (v <= T[0][0]) return T[0][2];
+  for (let i = 1; i < T.length; i++) {
+    if (v <= T[i][0]) { const [x0, , y0] = T[i - 1], [x1, , y1] = T[i]; return Math.round((y0 + (y1 - y0) * (v - x0) / (x1 - x0)) * 100) / 100; }
+  }
+  return 9;
 }

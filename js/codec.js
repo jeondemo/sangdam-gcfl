@@ -47,6 +47,7 @@ export function encode(history) {
     p.g || [],
     p.gj || [],
     p.csat ? C.map(k => p.csat[k]) : [],
+    p.hk || '',          // 외고 학과(영어과·일어과 …) — 예전 자료에는 없습니다
   ]);
 
   return {
@@ -87,6 +88,7 @@ export function decode(enc) {
       g: r[2] && r[2].length ? r[2] : null,
       gj: r[3] && r[3].length ? r[3] : null,
       csat: has ? csat : null,
+      hk: r[5] || null,
     };
   });
 
