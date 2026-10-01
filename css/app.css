@@ -198,9 +198,13 @@ button{font-family:inherit}
   background:transparent;color:#8d9ac0;font-size:11px;line-height:14px;cursor:pointer;vertical-align:1px}
 .sb-scope .row .xg:hover{color:#ffb4b4;border-color:#ffb4b4}
 /* 구역 제목·라벨은 작은 모니터에서 배경에 묻히지 않도록 크기를 올리고 불투명하게 둡니다. */
-.sbl{font-size:11px;letter-spacing:1.4px;color:#9fb0e0;font-weight:800;margin:18px 0 9px;
-  display:flex;align-items:center;gap:9px}
-.sbl::after{content:"";flex:1;height:1px;background:rgba(160,180,235,.22)}
+.sbl{font-size:13.5px;letter-spacing:.6px;color:var(--gold);font-weight:800;margin:22px 0 10px;
+  display:flex;align-items:center;gap:8px}
+.sbl::before{content:"";width:4px;height:15px;border-radius:2px;background:var(--gold);flex:0 0 auto}
+.sbl::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(217,190,134,.55),rgba(217,190,134,0))}
+/* 유사 학생 수 · 대상 연도 — 구역 제목과 같은 색으로 */
+#sb-nums .lbl{font-size:13px;color:var(--gold);font-weight:800;letter-spacing:.3px;margin:20px 0 8px;display:flex;align-items:center;gap:7px}
+#sb-nums .lbl::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--gold);flex:0 0 auto}
 .lbl{display:block;font-size:11.5px;color:#c3cdea;font-weight:700;margin:14px 0 6px;letter-spacing:-.1px}
 .sb input,.sb select{width:100%;padding:8px 10px;border-radius:9px;font-size:12.5px;font-family:inherit;
   background:rgba(8,12,32,.5);border:1px solid rgba(160,180,235,.32);color:#f2f6ff;-webkit-appearance:none}
@@ -383,7 +387,9 @@ td.ok b{color:var(--pass)} td.warn{color:var(--minx)} td.nw{white-space:nowrap}
 }
 
 /* ══ 상담 유형 · 정시 모드 ══ */
-.chips.mode .chip{flex:1 1 auto;text-align:center;padding:7px 8px}
+/* 보기 메뉴는 폭과 상관없이 늘 위 2 · 아래 2 */
+#viewchips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chips.mode .chip{flex:1 1 auto;text-align:center;padding:7px 8px;min-width:0}
 .chips.mode .chip small{display:block;font-size:9.5px;font-weight:500;opacity:.75;margin-top:1px}
 .sg4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
 .sg4 label{display:block;text-align:center;font-size:10.5px;color:#aeb9dd;font-weight:700;margin-bottom:4px}

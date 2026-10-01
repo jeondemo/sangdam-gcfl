@@ -293,6 +293,7 @@ const gradeOf = st => st.gr || Math.floor(st.c / 100);
 
 function onStudentChange() {
   const v = $('stu').value;
+  window.scrollTo({ top: 0 });   /* 학생을 바꾸면 결과를 맨 위부터 */
   clearStudent();
   if (!v) return run();
   const [c, no] = v.split('-').map(Number);
@@ -467,7 +468,9 @@ function univFind(q) {
   /* 앞에서부터 맞는 이름 → 선호도 순 → 합격 많은 순 */
   const hit = univList().map(o => { const u = unorm(o.univ); return { o, at: u.startsWith(k) ? 0 : (u.includes(k) ? 1 : -1), r: rankOf(o.univ) }; })
     .filter(x => x.at >= 0).sort((a, b) => a.at - b.at || a.r - b.r || b.o.h - a.o.h || b.o.n - a.o.n);
-  return hit.map(x => x.o).slice(0, 16);
+  /* 이름이 딱 맞는 대학이 있으면 중간에 들어 있는 이름은 뺍니다 — 「서울대」에 동서울대가 섞이지 않도록(다른 학교) */
+  const exact = hit.some(x => { const u = unorm(x.o.univ); return u === k || u === k + '대' || u === k + '학교' || u === k + '대학교'; });
+  return (exact ? hit.filter(x => x.at === 0) : hit).map(x => x.o).slice(0, 16);
 }
 
 /* ── 화면 이동 ───────────────────────────────────────────
@@ -937,7 +940,10 @@ bindChips('viewchips', b => {
   const v = b.dataset.view;
   if (v === 'univ') showUnivList();   /* 메뉴로 들어오면 늘 대학 목록부터 */
   else if (v === 'dept' || v === 'band') openPool(v);
-  else if (S.view !== 'stu') backToStu();
+  else {
+    if (S.view !== 'stu') backToStu();
+    requestAnimationFrame(() => window.scrollTo({ top: 0 }));   /* 메뉴로 들어오면 어느 화면이든 맨 위부터 */
+  }
 });
 /* 학과별·내신별 화면의 조작 */
 $('gctl').addEventListener('click', e => {
